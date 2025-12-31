@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Inbox{% endblock title %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4 class="mb-3 text-muted">Chats</h4>
+
+    {% if chats %}
+        <div class="list-group">
+            {% for user in chats %}
+                <a href="{% url 'chats:room' user.username%}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ user.username }}</strong>
+                    </div>
+                    <span class="badge bg-secondary rounded-pill">
+                        {{ user.sent_messages.count }}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-muted text-center mt-3">No chats yet.</p>
+    {% endif %}
+</div>
+{% endblock content %}

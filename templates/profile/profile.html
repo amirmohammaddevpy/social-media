@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.username }} Profile{% endblock title %}
+
+{% block content %}
+
+<style>
+.follow-btn {
+  background-color: white;
+  color: black;
+  border: 1px solid #333;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.follow-btn.active {
+  background-color: #1da1f2;
+  color: white;
+}
+
+</style>
+
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+
+      <!-- Profile Card -->
+      <div class="card shadow-lg">
+        <div class="card-body text-center">
+
+          <!-- Avatar -->
+          <img src="{{ profile.avatar.url }}" 
+               alt="avatar" 
+               class="rounded-circle mb-3" 
+               width="120" height="120"
+               style="object-fit: cover; border: 3px solid #007bff;">
+
+          <!-- Username & Name -->
+          <h3 class="card-title">{{ profile.username }}</h3>
+          <p class="text-muted">{{ profile.first_name }} {{ profile.last_name }}</p>
+
+          <!-- Stats Example (followers, posts, etc.) -->
+          <div class="d-flex justify-content-center my-3 gap-4">
+            <div>
+              <h5>{{ post.count }}</h5>
+              <small class="text-muted">Posts</small>
+            </div>
+            <div>
+              <h5 id="followers-count">{{ profile.followers.count }}</h5>
+              <a href="{% url 'profiles:followers' profile.username %}"><small class="text-muted">Followers</small></a>
+            </div>
+            <div>
+              <h5>{{ profile.following.count }}</h5>
+              <a href="{% url 'profiles:following' profile.username %}"><small class="text-muted">Following</small></a>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="d-flex justify-content-center gap-2 flex-wrap">
+            {% if user == profile %}
+              <a href="{% url 'posts:create_post' request.user %}" class="btn btn-success">
+              + Create Post
+              </a>
+              <a href="{% url 'profiles:edit_profile' request.user %}" class="btn btn-outline-primary">
+              Edit Profile
+              </a>
+
+              <form action="{% url 'account:logout' %}" method="POST">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                Logout
+                </button>
+              </form>
+            {% else %}
+            
+              <button 
+              class="btn btn-dark follow-btn {% if request.user in contact.all %}active{% endif %}"
+              data-url="{% url 'profiles:follow' profile.username %}"
+              onclick="follow(this)">
+              <span class="follow-text">
+              {% if request.user in profile.followers.all %}
+                Following
+              {% else %}
+                Follow
+              {% endif %}
+              </span>
+              </button><button class="btn btn-outline-secondary message-btn" 
+        data-username="{{ profile.username }}"
+        {% if not request.user in profile.followers.all %}style="display:none"{% endif %}
+        id="room-name-submit">
+    Message
+</button>
+                
+            {% endif %}
+          </div>
+        </div>
+      </div>
+<div class="mt-4">
+  <h5 class="mb-3">Recent Posts</h5>
+  <div class="row g-3">
+    {% for posts in post %}
+      <div class="col-12 col-md-4 position-relative">
+        <div class="card h-100">
+          <!-- Delete button -->
+          <div class="position-absolute top-0 end-0 m-2">
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light p-1" type="button" id="dropdownMenuButton{{ post.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                &#x22EE; <!-- سه نقطه عمودی -->
+              </button>
+              <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ posts.id }}">
+                <li>
+                  
+                  {% if request.user == profile %}
+                  <form method="POST" action="{% url 'posts:delete_post' posts.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="dropdown-item text-danger">Delete</button>
+                  </form>
+                    
+                  {% endif %}
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Card link -->
+          <a href="{% url 'posts:detail_post' posts.id %}" class="text-decoration-none text-dark">
+            <img src="{{ posts.post.url }}" class="card-img-top" alt="{{ posts.title }}">
+            <div class="card-body">
+              <p class="card-text">{{ posts.descriptions|default:"No description yet." }}</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    {% empty %}
+      <p class="text-center text-muted">No posts yet.</p>
+    {% endfor %}
+  </div>
+</div>
+
+
+    </div>
+  </div>
+</div>
+
+<input type="hidden" id="nameroom" value="{{ profile.username }}">
+<script>
+  document.querySelector("#nameroom").focus();
+  document.querySelector("#nameroom").onkeyup = function(e) {
+    if (e.key === 'Enter') {  // enter, return
+      document.querySelector('#room-name-submit').click();
+      }
+    };
+
+    document.querySelector('#room-name-submit').onclick = function(e) {
+    var roomName = document.querySelector("#nameroom").value;
+    window.location.pathname = '/chat/' + roomName + '/';
+        };
+    </script>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+const btn = document.getElementById('follow-btn-id');
+
+function follow(el) {
+  const url = el.dataset.url;
+  const csrftoken = getCookie('csrftoken');
+  const textEl = el.querySelector('.follow-text'); 
+  const followersEl = document.getElementById('followers-count');
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrftoken,
+    },
+    body: JSON.stringify({})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'follow') {
+      followersEl.innerText = Number(followersEl.innerText) + 1
+      el.textContent = 'Following';
+      location.reload(true);
+    } else if (data.status === 'unfollow') {
+      followersEl.innerText = Number(followersEl.innerText) - 1
+      el.textContent = 'Follow';
+        location.reload(true);
+    }
+  })
+  .catch(err => console.error(err));
+}
+</script>
+
+
+{% endblock content %}

@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}
+Chat Room
+{% endblock title %}
+
+{% block content %}
+
+<style>
+    .chat-container {
+    max-width: 600px;
+    margin: 40px auto;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    height: 70vh;
+}
+
+.chat-header {
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.chat-header h4 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.chat-log {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    background: #f7f8fa;
+}
+
+.chat-message {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.chat-message.me {
+    justify-content: flex-end;
+}
+
+.chat-message.other {
+    justify-content: flex-start;
+}
+
+.bubble {
+    max-width: 70%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: #e9e9eb;
+    font-size: 14px;
+}
+
+.chat-message.me .bubble {
+    background: #0d6efd;
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.chat-message.other .bubble {
+    background: #ffffff;
+    border-bottom-left-radius: 4px;
+}
+
+.sender {
+    font-size: 11px;
+    opacity: 0.6;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+    padding: 14px;
+    border-top: 1px solid #eee;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 20px;
+    border: 1px solid #ddd;
+    outline: none;
+}
+
+.chat-input input:focus {
+    border-color: #0d6efd;
+}
+
+.chat-input button {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: none;
+    background: #0d6efd;
+    color: white;
+    cursor: pointer;
+}
+
+.chat-input button:hover {
+    opacity: 0.9;
+}
+
+.empty-chat {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+}
+
+</style>
+<div class="chat-container">
+    <div class="chat-header">
+        <h4>Private Chat</h4>
+    </div>
+
+    {% if message %}
+    <div id="chat-log" class="chat-log">
+        {% for msg in message %}
+            <div class="chat-message {% if msg.sender.username == request.user.username %}me{% else %}other{% endif %}">
+                <div class="bubble">
+                    <span class="sender">{{ msg.sender.username }}</span>
+                    <p>{{ msg.message }}</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p class="empty-chat">No messages yet</p>
+    {% endif %}
+
+    <div class="chat-input">
+        <input id="chat-message-input" type="text" placeholder="Type a message...">
+        <button id="chat-message-submit">Send</button>
+    </div>
+
+    {{ username|json_script:"other-username" }}
+    {{ request.user.username|json_script:"my-username" }}
+</div>
+
+
+<script>
+    const chatLog = document.getElementById("chat-log");
+    if (chatLog) {
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const chatLog = document.querySelector('#chat-log');
+    const input = document.querySelector('#chat-message-input');
+    const submit = document.querySelector('#chat-message-submit');
+
+    const otherUsername = JSON.parse(document.getElementById('other-username').textContent);
+    const myUsername = JSON.parse(document.getElementById('my-username').textContent);
+
+    const chatSocket = new WebSocket(`ws://${window.location.host}/ws/chat/${otherUsername}/`);
+    console.log("Connecting to room:", otherUsername);
+
+    chatSocket.onopen = () => console.log('WebSocket connected');
+
+    function renderMessage(sender, message, isMe) {
+    return `
+        <div class="chat-message ${isMe ? 'me' : 'other'}">
+            <div class="bubble">
+                <span class="sender">${sender}</span>
+                <p>${message}</p>
+            </div>
+        </div>
+    `;
+}
+
+
+    chatSocket.onmessage = (e) => {
+    try {
+        const data = JSON.parse(e.data);
+        if (!data.message) return;
+
+        chatLog.insertAdjacentHTML(
+            "beforeend",
+            renderMessage(
+                data.sender,
+                data.message,
+                data.sender === myUsername
+            )
+        );
+
+        chatLog.scrollTop = chatLog.scrollHeight;
+
+    } catch (err) {
+        console.error('Invalid JSON:', e.data);
+    }
+};
+
+
+    chatSocket.onerror = (e) => console.error('WebSocket error:', e);
+
+    chatSocket.onclose = (e) => {
+        if (e.code === 1000) {
+            console.log('WebSocket closed normally');
+        } else {
+            console.error('WebSocket closed unexpectedly', e.code, e.reason);
+        }
+    };
+
+    function sendMessage() {
+        const message = input.value.trim();
+        if (!message) return;
+
+        if (chatSocket.readyState !== WebSocket.OPEN) {
+            console.error('Socket not ready');
+            return;
+        }
+
+        chatSocket.send(JSON.stringify({ message }));
+        input.value = '';
+    }
+
+    submit.addEventListener('click', sendMessage);
+
+    input.addEventListener('keyup', (e) => {
+        if(e.key === 'Enter') sendMessage();
+    });
+});
+</script>
+{% endblock content %}

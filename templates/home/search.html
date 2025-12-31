@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Explore{% endblock %}
+
+{% block content %}
+
+<style>
+    .explore-container {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.explore-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.query-text {
+    margin-bottom: 16px;
+    color: #555;
+}
+
+.posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+}
+
+.post-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    text-align: center;
+    transition: transform 0.2s;
+    padding: 12px;
+}
+
+.post-card:hover {
+    transform: translateY(-5px);
+}
+
+.user-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 8px;
+}
+
+.username {
+    font-weight: 500;
+    font-size: 16px;
+}
+
+.post-card a {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.empty {
+    text-align: center;
+    color: #888;
+    padding: 40px 0;
+}
+
+</style>
+
+<div class="explore-container">
+    <h2 class="explore-title">Explore Users</h2>
+
+    {% if results %}
+    
+    {% for item in results %}
+        <p class="query-text">Showing results for "<strong>{{ item }}</strong>"</p>
+    {% endfor %}
+        
+    {% endif %}
+
+    {% if results %}
+        <div class="posts-grid">
+            {% for user in results %}
+                <div class="post-card">
+                    <a href="{% url 'profiles:profile' user.username %}">
+                        <img src="{{ user.avatar.url }}" alt="{{ user.username }}" class="user-avatar">
+                        <span class="username">{{ user.username }}</span>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty">No users found.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+
+.parent {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 8px;
+}
+    
+.div1 {
+    grid-row: span 5 / span 5;
+}
+
+.div2 {
+    grid-row: span 5 / span 5;
+    grid-column-start: 5;
+    grid-row-start: 1;
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    max-width: 320px;
+}
+
+.div5 {
+    grid-column: span 3 / span 3;
+    grid-row: span 5 / span 5;
+    grid-column-start: 2;
+    grid-row-start: 1;
+      display: grid;
+  place-items: center; 
+}
+
+
+.followers-title {
+    font-size: 18px;
+    margin-bottom: 12px;
+}
+
+.followers-title .count {
+    color: #888;
+    font-size: 14px;
+}
+
+.followers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.follower-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #111;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+}
+
+.follower-item:hover {
+    background: #f3f3f3;
+}
+
+.follower-item img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.username {
+    font-weight: 500;
+}
+
+.empty {
+    color: #999;
+    font-size: 14px;
+}
+</style>
+
+<div class="parent">
+    <div class="div1">
+    <h2 class="followers-title">
+        Following <span class="count">({{ follow.following.count }})</span>
+    </h2>
+
+    <div class="followers-list">
+        {% for user in follow.following.all %}
+            <a href="{% url 'profiles:profile' user.username %}" class="follower-item">
+                <img src="{{ user.avatar.url }}" alt="{{ user.username }}">
+                <span class="username">{{ user.username }}</span>
+            </a>
+        {% empty %}
+            <p class="empty">No following yet</p>
+        {% endfor %}
+    </div>
+    </div>
+
+<div class="div2">
+    <h2 class="followers-title">
+        Followers <span class="count">({{ follow.followers.count }})</span>
+    </h2>
+
+    <div class="followers-list">
+        {% for user in follow.followers.all %}
+            <a href="{% url 'profiles:profile' user.username %}" class="follower-item">
+                <img src="{{ user.avatar.url }}" alt="{{ user.username }}">
+                <span class="username">{{ user.username }}</span>
+            </a>
+        {% empty %}
+            <p class="empty">No followers yet</p>
+        {% endfor %}
+    </div>
+</div>
+
+
+
+    <div class="div5">
+        <h1>Posts:{{post.count}}</h1>
+        
+            
+        <div class="card" style="width: 18rem;">
+        {% for posts in post %}
+        <a href="{% url 'posts:detail_post' posts.id %}">
+        <img src="{{ posts.post.url }}" class="card-img-top" alt="...">
+            <div class="card-body">
+            <p class="card-text" style="color: black;">{{ posts.descriptions }}</p>
+            </div>
+            </a>
+        {% endfor %}
+        </div>
+            
+    </div>
+</div>
+    
+
+{% endblock content %}

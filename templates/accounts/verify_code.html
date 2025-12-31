@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Verify Code
+{% endblock title %}
+
+{% block content %}
+
+<div style="max-width: 380px; margin: 40px auto; padding: 25px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: sans-serif;">
+
+    <h2 style="text-align: center; margin-bottom: 20px; color: #333; font-size: 22px;">
+        Verify your code
+    </h2>
+
+    <div class="container mt-3">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'danger' }}" role="alert">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+    <form action="{% url 'account:verify_code' %}" method="post" style="display: flex; flex-direction: column; gap: 15px;">
+        {% csrf_token %}
+
+        <input 
+            type="text"
+            name="verify"
+            id="verify"
+            placeholder="Enter verification code"
+            style="padding: 12px 14px; font-size: 15px; border: 1px solid #ccc; border-radius: 8px; outline: none; transition: 0.2s;"
+            onfocus="this.style.borderColor='#6a5acd'"
+        >
+
+        <input 
+            type="submit"
+            value="Submit"
+            style="padding: 12px; border: none; background: #6a5acd; color: white; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.2s;"
+            onmouseover="this.style.background='#5849c8'"
+            onmouseout="this.style.background='#6a5acd'"
+        >
+    </form>
+
+</div>
+
+{% endblock content %}
