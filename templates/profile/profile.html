@@ -64,10 +64,10 @@
               Edit Profile
               </a>
 
-              <form action="{% url 'account:logout' %}" method="POST">
+              <form action="{% url 'account:delete' user.id %}" method="POST">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-danger">
-                Logout
+                Delete Account
                 </button>
               </form>
             {% else %}

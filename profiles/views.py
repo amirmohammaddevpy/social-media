@@ -61,3 +61,7 @@ def list_following(request,username):
     get_user = get_object_or_404(MyUser,username=username)
     following_user = get_user.following.all()
     return render(request,"profile/following.html",{'following':following_user})
+
+def delete_account(requst,pk):
+    MyUser.objects.filter(id=pk).delete()
+    return redirect("account:register")
