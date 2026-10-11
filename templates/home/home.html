@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+/* =========================================================
+   لایه اصلی صفحه (فید تک‌ستونه، شبیه اینستاگرام)
+   ========================================================= */
+.main-layout {
+    max-width: 600px;
+    margin: 15px auto;
+    width: 100%;
+}
+
+.feed-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.post-card-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.post-card-link:hover .card {
+    border-color: var(--bs-link-color);
+}
+
+.empty-msg {
+    color: var(--bs-secondary-color);
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+/* =========================================================
+   نوار استوری (طرح اینستاگرام) - افقی و اسکرول‌پذیر
+   ========================================================= */
+.instagram-stories-bar {
+    display: flex;
+    flex-direction: row;
+    direction: rtl;   /* ترتیب از راست به چپ */
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 12px 16px;
+    background: var(--bs-card-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    scrollbar-width: none; /* مخفی کردن اسکرول‌بار در فایرفاکس */
+}
+
+.instagram-stories-bar::-webkit-scrollbar {
+    display: none; /* مخفی کردن اسکرول‌بار در کروم و سافاری */
+}
+
+/* هر آیتم استوری */
+.story-circle-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 72px;
+    flex-shrink: 0;   /* جلوگیری از فشرده/بیضی شدن دایره‌ها */
+    flex-grow: 0;
+    cursor: pointer;
+}
+
+/* دایره‌ی دور آواتار */
+.story-avatar-wrapper {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #dbdbdb; /* حالت پیش‌فرض: بدون استوری جدید */
+    padding: 2px;
+}
+
+/* حلقه‌ی گرادیانِ رنگی برای استوری‌های دیده‌نشده */
+.story-circle-item.has-story .story-avatar-wrapper {
+    background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+    padding: 3px;
+}
+
+/* حلقه‌ی خاکستری برای استوری‌های دیده‌شده */
+.story-circle-item.has-story.seen .story-avatar-wrapper {
+    background: #c7c7c7;
+    padding: 2px;
+}
+
+.story-avatar-wrapper img,
+.story-avatar-wrapper .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--bs-card-bg); /* حاشیه بین گرادیان و عکس */
+    display: block;
+}
+
+.story-avatar-wrapper .avatar-placeholder {
+    background-color: var(--bs-secondary-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* نام کاربری زیر دایره */
+.story-username-label {
+    font-size: 11px;
+    margin-top: 6px;
+    color: var(--bs-body-color);
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* دکمه‌ی + برای گذاشتن استوری جدید */
+.add-story-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background-color: #0095f6;
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--bs-card-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.add-story-badge i {
+    font-size: 14px;    
+    font-weight: bold;
+}
+
+/* =========================================================
+   مودال / پلیر استوری
+   ========================================================= */
+.story-viewer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+}
+
+.story-viewer-overlay.active {
+    display: flex;
+}
+
+.story-viewer-box {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    height: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px;
+}
+
+@media (max-width: 576px) {
+    .story-viewer-box {
+        max-height: 100vh;
+        height: 100%;
+    }
+}
+
+.story-viewer-progress-container {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.story-viewer-progress {
+    flex-grow: 1;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.story-viewer-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #fff;
+}
+
+.story-viewer-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    z-index: 15;
+}
+
+.story-viewer-header img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.story-viewer-content-wrapper {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 16px 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.story-viewer-content {
+    width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    user-select: none;
+    z-index: 1;
+}
+
+/* مناطق ناوبری چپ و راست روی استوری */
+.story-nav-area {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.story-nav-left {
+    left: 0;
+}
+
+.story-nav-right {
+    right: 0;
+}
+</style>
+
+<div class="main-layout">
+
+    <!-- مودال نمایش استوری -->
+    <div id="storyViewerOverlay" class="story-viewer-overlay">
+        <div class="story-viewer-box">
+            <div>
+                <div id="progressContainer" class="story-viewer-progress-container"></div>
+                <div class="story-viewer-header">
+                    <img id="viewerAvatar" src="" alt="">
+                    <span id="viewerUsername" class="fw-bold"></span>
+                    <button type="button" class="btn-close btn-close-white ms-auto" style="cursor:pointer;" onclick="closeStoryViewer()"></button>
+                </div>
+            </div>
+            
+            <div class="story-viewer-content-wrapper">
+                <div class="story-nav-area story-nav-left" onclick="prevStory()"></div>
+                <img class="story-viewer-content" id="viewerImage" src="" alt="">
+                <div class="story-nav-area story-nav-right" onclick="nextStory()"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- بخش فید و استوری بار -->
+    <div class="feed-container">
+        <div class="instagram-stories-bar" id="storiesBar">
+
+            <!-- ۱. استوری من (کاربر لاگین شده) -->
+            <div class="story-circle-item" 
+                 id="my-story-item"
+                 data-username="My Story"
+                 data-avatar="{% if request.user.avatar %}{{ request.user.avatar.url }}{% endif %}"
+                 onclick="openMyStoryClick(this)">
+                <div class="story-avatar-wrapper">
+                    {% if request.user.avatar %}
+                        <img src="{{ request.user.avatar.url }}" alt="Your avatar" class="story-avatar">
+                    {% else %}
+                        <div class="avatar-placeholder"><i class="bi bi-person"></i></div>
+                    {% endif %}
+                    <label for="story-image-input" class="add-story-badge" style="cursor: pointer;" onclick="event.stopPropagation();">
+                        <i class="bi bi-plus-lg"></i>
+                    </label>
+                </div>
+                <span class="story-username-label">My story</span>
+            </div>
+
+            <!-- ۲. استوری فالووینگ‌ها -->
+            {% for u in follow %}
+                <div class="story-circle-item user-story-node"
+                     id="user-story-{{ u.id }}"
+                     data-user-id="{{ u.id }}"
+                     data-username="{{ u.username }}"
+                     data-avatar="{% if u.avatar %}{{ u.avatar.url }}{% endif %}"
+                     style="display: none;" 
+                     onclick="openFollowingStories(this)">
+                    <div class="story-avatar-wrapper">
+                        {% if u.avatar %}
+                            <img src="{{ u.avatar.url }}" alt="{{ u.username }}" class="story-avatar">
+                        {% else %}
+                            <div class="avatar-placeholder"><i class="bi bi-person"></i></div>
+                        {% endif %}
+                    </div>
+                    <span class="story-username-label">{{ u.username }}</span>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- فرم آپلود استوری منطبق با فیلدهای ویو جنگو -->
+        <form method="post" enctype="multipart/form-data" id="storyForm" style="display: none;">
+            {% csrf_token %}
+            <input type="file" name="story" id="story-image-input" accept="image/*,video/*">
+        </form>
+
+        <!-- فید پست‌ها -->
+        <h1 class="h5 mb-2 fw-bold" style="color: var(--bs-body-color);">
+            Feed Posts <span class="badge bg-secondary fs-6 rounded-pill ms-1">{{ post.count }}</span>
+        </h1>
+
+        <div class="row row-cols-1 g-3">
+            {% for p in post %}
+                <div class="col">
+                    <a href="{% url 'posts:detail_post' p.id %}" class="post-card-link">
+                        <div class="card h-100 shadow-sm">
+                            {% if p.post %}
+                                <img src="{{ p.post.url }}" class="card-img-top" alt="Post" style="max-height: 500px; object-fit: cover;">
+                            {% endif %}
+                            <div class="card-body">
+                                <p class="card-text small text-truncate" style="color: var(--bs-body-color);">
+                                    {{ p.descriptions }}
+                                </p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% empty %}
+                <div class="col-12 text-center py-5 card">
+                    <p class="empty-msg fs-5 m-0">No posts to show.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+// ذخیره خام تمام استوری‌های ارسال شده از بک‌اند برای پردازش در فرانت
+const rawStories = [
+    {% for s in story %}
+        {
+            "id": "{{ s.id }}",
+            "userId": "{{ s.user.id }}",
+            "url": "{% if s.story %}{{ s.story.url }}{% elif s.image %}{{ s.image.url }}{% endif %}",
+            "seen": {% if s.seen %}true{% else %}false{% endif %}
+        }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+let activeUserStories = []; // لیست استوری‌های در حال پخش کاربر فعال
+let currentStoryIndex = 0;
+let progressTimer = null;
+const STORY_DURATION = 5000;
+let csrftoken = '';
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    csrftoken = getCookie('csrftoken');
+
+    // مدیریت خودکار آپلود استوری با تغییر مقدار فایل اینپوت
+    const fileInput = document.getElementById('story-image-input');
+    if (fileInput) {
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files.length > 0) {
+                document.getElementById('storyForm').submit();
+            }
+        });
+    }
+
+    // پردازش استوری‌های دریافتی و فعال کردن حلقه‌های رنگی فالووینگ‌ها
+    initializeStoryCircles();
+
+    // رویدادهای بستن مودال
+    document.getElementById('storyViewerOverlay')?.addEventListener('click', function (e) {
+        if (e.target === this) closeStoryViewer();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeStoryViewer();
+    });
+});
+
+// شناسایی و ساخت حلقه‌های استوری دوستان
+function initializeStoryCircles() {
+    // ایجاد گروه بر اساس آیدی کاربر
+    const userGroups = {};
+    rawStories.forEach(s => {
+        if (!userGroups[s.userId]) {
+            userGroups[s.userId] = [];
+        }
+        userGroups[s.userId].push(s);
+    });
+
+    // فعال کردن و رنگی کردن المان‌های HTML دوستانی که استوری دارند
+    Object.keys(userGroups).forEach(userId => {
+        const node = document.getElementById(`user-story-${userId}`);
+        if (node) {
+            node.style.display = 'flex'; // المان نمایان می‌شود
+            node.classList.add('has-story');
+            
+            // ذخیره داده‌های استوری درون دیتاست المان
+            node.dataset.storiesJson = JSON.stringify(userGroups[userId]);
+
+            // بررسی وضعیت دیده شدن (چون در ویو seen=False فیلتر شده، همگی دیده نشده و رنگی خواهند بود)
+            const allSeen = userGroups[userId].every(s => s.seen);
+            if (allSeen) {
+                node.classList.add('seen');
+            }
+        }
+    });
+}
+
+// دکمه استوری من (کلیک روی آواتار اول)
+function openMyStoryClick(element) {
+    // چون استوری‌های خود کاربر در این کوئری‌ست نیست، کلیک روی آن مستقیماً اینپوت آپلود را باز می‌کند
+    const fileInput = document.getElementById('story-image-input');
+    if (fileInput) fileInput.click();
+}
+
+// باز کردن استوری‌های فالووینگ‌ها
+function openFollowingStories(element) {
+    if (!element.dataset.storiesJson) return;
+
+    try {
+        activeUserStories = JSON.parse(element.dataset.storiesJson);
+    } catch (e) {
+        console.error("Error parsing stories data", e);
+        return;
+    }
+
+    if (activeUserStories.length === 0) return;
+
+    window.currentActiveNode = element;
+    currentStoryIndex = 0;
+
+    document.getElementById('storyViewerOverlay').classList.add('active');
+    renderStory(currentStoryIndex);
+}
+
+function renderStory(index) {
+    if (index < 0 || index >= activeUserStories.length) {
+        closeStoryViewer();
+        return;
+    }
+    currentStoryIndex = index;
+    const currentStory = activeUserStories[currentStoryIndex];
+
+    document.getElementById('viewerImage').src = currentStory.url;
+    document.getElementById('viewerAvatar').src = window.currentActiveNode.dataset.avatar || '';
+    document.getElementById('viewerUsername').textContent = window.currentActiveNode.dataset.username;
+
+    buildProgressBars();
+    startProgress();
+    markStorySeen(currentStory.id);
+}
+
+function buildProgressBars() {
+    const container = document.getElementById('progressContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    activeUserStories.forEach((s, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'story-viewer-progress';
+        bar.innerHTML = `<div class="story-viewer-progress-bar" id="bar-${i}"></div>`;
+        container.appendChild(bar);
+    });
+}
+
+function startProgress() {
+    clearTimeout(progressTimer);
+
+    activeUserStories.forEach((s, i) => {
+        const bar = document.getElementById(`bar-${i}`);
+        if (!bar) return;
+        if (i < currentStoryIndex) {
+            bar.style.transition = 'none';
+            bar.style.width = '100%';
+        } else if (i === currentStoryIndex) {
+            bar.style.transition = 'none';
+            bar.style.width = '0%';
+            void bar.offsetWidth; // Force reflow
+            bar.style.transition = `width ${STORY_DURATION}ms linear`;
+            bar.style.width = '100%';
+        } else {
+            bar.style.transition = 'none';
+            bar.style.width = '0%';
+        }
+    });
+
+    progressTimer = setTimeout(nextStory, STORY_DURATION);
+}
+
+function nextStory() {
+    if (currentStoryIndex + 1 < activeUserStories.length) {
+        renderStory(currentStoryIndex + 1);
+    } else {
+        closeStoryViewer();
+    }
+}
+
+function prevStory() {
+    if (currentStoryIndex - 1 >= 0) {
+        renderStory(currentStoryIndex - 1);
+    }
+}
+
+function closeStoryViewer() {
+    clearTimeout(progressTimer);
+    document.getElementById('storyViewerOverlay').classList.remove('active');
+}
+
+function markStorySeen(storyId) {
+    if (!storyId) return;
+    
+    fetch(`/story/${storyId}/seen/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            const storyObj = activeUserStories.find(s => s.id == storyId);
+            if(storyObj) storyObj.seen = true;
+
+            const allSeen = activeUserStories.every(s => s.seen);
+            if (allSeen && window.currentActiveNode) {
+                window.currentActiveNode.classList.add('seen');
+            }
+        }
+    })
+    .catch(error => console.error('Error standard tracking seen status:', error));
+}
+
+window.openMyStoryClick = openMyStoryClick;
+window.openFollowingStories = openFollowingStories;
+window.nextStory = nextStory;
+window.prevStory = prevStory;
+window.closeStoryViewer = closeStoryViewer;
+</script>
+{% endblock content %}

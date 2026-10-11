@@ -1,0 +1,468 @@
+<!-- أضف هذا الرابط في رأس الصفحة (head) إذا لم يكن موجوداً لديك لتشغيل الأيقونات -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm sticky-top">
+  <div class="container-fluid">
+
+    <!-- اللوجو -->
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'home:home' %}">
+      <span class="text-primary" aria-hidden="true">●</span> Social
+    </a>
+
+    <!-- زر الموبايل للـ القائمة -->
+    <button class="navbar-toggler" type="button" 
+            data-bs-toggle="collapse" data-bs-target="#mainNavbar" 
+            aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="mainNavbar">
+
+      <!-- الروابط الرئيسية على اليسار -->
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-1 align-items-center">
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'home:home' %}" title="Home">
+            <i class="fas fa-home" aria-hidden="true"></i>
+            <span class="visually-hidden">Home</span> 
+          </a>
+        </li>
+
+        {% if user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'home:explore' %}" title="Explore">
+            <i class="fas fa-video"></i>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link position-relative" href="{% url 'chats:chats' %}" title="Messages">
+            <i class="fas fa-comment-alt"></i>
+            {% if unread_messages_count > 0 %}
+              <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill">
+                {{ unread_messages_count }}
+              </span>
+            {% endif %}
+          </a>
+        </li>
+        
+        <!-- ✅ دکمه پاپ‌آپ باز کردن فرم استوری -->
+        {% endif %}
+      </ul>
+
+      <!-- شريط البحث في المنتصف -->
+      <form class="mx-auto my-2 my-lg-0 w-100 w-lg-50" style="max-width: 450px;" 
+            method="GET" action="{% url 'home:search' %}">
+        <div class="input-group">
+          <input class="form-control text-light bg-secondary-dark border-secondary rounded-start-pill px-4"
+                 type="search"
+                 name="q"
+                 placeholder="Search people, posts…"
+                 aria-label="Search input"
+                 required>
+          <button type="submit" class="btn btn-primary rounded-end-pill px-3">Search</button>
+        </div>
+      </form>
+
+      <!-- الأزرار على اليمين (الإشعارات والملف الشخصي) -->
+      <ul class="navbar-nav ms-auto align-items-center gap-3">
+
+        {% if user.is_authenticated %}
+
+        <!-- 1. قائمة الإشعارات (Notification Dropdown) -->
+        <li class="nav-item dropdown position-relative">
+          <a class="nav-link position-relative p-2" href="#"
+             id="notifDropdown" role="button"
+             data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-bell-fill fs-5 text-light"></i>
+            {% if unread_notifications_count > 0 %}
+              <span class="notif-badge">{{ unread_notifications_count }}</span>
+            {% endif %}
+          </a>
+
+          <div class="dropdown-menu dropdown-menu-end shadow-lg mt-2 notif-dropdown
+                      custom-scrollbar bg-dark border-secondary"
+               aria-labelledby="notifDropdown"
+               style="width: 320px; max-height: 420px; overflow-y: auto;">
+
+            <div class="px-3 py-2 d-flex justify-content-between align-items-center border-bottom border-secondary">
+              <h6 class="mb-0 fw-bold text-light">Notifications</h6>
+              <a href="" id="markAllRead"
+                 class="extra-small text-primary text-decoration-none hover-underline">
+                Mark all as read
+              </a>
+            </div>
+
+           {% for n in notifications %}
+          <a href="/profile/{{ n.user.username }}/"
+             class="d-flex align-items-center gap-3 text-decoration-none text-light
+                    border-bottom border-secondary p-3
+                    {% if not n.is_read %}bg-primary bg-opacity-10{% endif %}"
+             data-notif-id="{{ n.id }}">
+
+            <!-- آواتار -->
+            <div class="position-relative flex-shrink-0">
+              <img src="{{ n.user.avatar.url }}"
+                   class="rounded-circle object-fit-cover"
+                   style="width:40px;height:40px;"
+                   alt="{{ n.user.username }}">
+              {% if not n.is_read %}
+                <span class="position-absolute bottom-0 end-0
+                             bg-primary border border-dark rounded-circle"
+                      style="width:10px;height:10px;"></span>
+              {% endif %}
+            </div>
+
+            <!-- متن -->
+            <div class="flex-grow-1 overflow-hidden">
+              <p class="mb-1 small text-truncate">
+                <strong>{{ n.user.username }}</strong> {{ n.message }}
+              </p>
+              <span class="text-muted extra-small">{{ n.created_at|timesince }} ago</span>
+            </div>
+
+            <!-- نقطه نخوانده -->
+            {% if not n.is_read %}
+              <span class="flex-shrink-0 bg-primary rounded-circle"
+                    style="width:8px;height:8px;"></span>
+            {% endif %}
+
+          </a>
+        {% empty %}
+          <div class="text-center py-4 text-muted small">No notifications</div>
+        {% endfor %}
+          </div>
+        </li>
+
+        <!-- 2. قائمة المستخدم (User Menu Dropdown) -->
+        <li class="nav-item dropdown position-relative">
+          <a class="nav-link dropdown-toggle text-light d-flex align-items-center gap-2" 
+          href="#" id="userMenuDropdown" role="button" 
+          data-bs-toggle="dropdown" aria-expanded="false">
+   
+          <img src="{% if request.user.avatar %}{{ request.user.avatar.url }}{% else %}/static/default-avatar.png{% endif %}"
+          alt="{{ request.user.username }}"
+          class="rounded-circle object-fit-cover"
+          style="width:32px; height:32px;">
+       
+        <span class="d-none d-lg-inline">{{ request.user.username }}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end shadow-lg mt-2 bg-dark border-secondary" aria-labelledby="userMenuDropdown">
+            <li>
+              <a class="dropdown-item text-light py-2" href="{% url 'profiles:profile' request.user.username %}">Profile</a>
+            </li>
+            <li>
+              <a class="dropdown-item text-light py-2" href="{% url 'posts:saved' %}">Saved Posts</a>
+            </li>
+
+            <li>
+              <a class="dropdown-item text-light py-2" href="{% url 'home:api_documentation' %}">API Docs</a>
+            </li>
+
+              <li>
+              <a class="dropdown-item text-light py-2" href="{% url 'story:story' %}">My story</a>
+            </li>
+
+            <li><hr class="dropdown-divider border-secondary my-1"></li>
+            <li>
+              <form action="{% url 'account:logout' %}" method="POST" class="m-0">
+                {% csrf_token %}
+                <button class="dropdown-item text-danger py-2" type="submit">Logout</button>
+              </form>
+            </li>
+          </ul>
+        </li>
+
+        {% else %}
+        <!-- أزرار تسجيل الدخول إذا كان الزائر غير مسجل -->
+        <li class="nav-item">
+          <a class="btn btn-sm btn-outline-light px-3 me-1" href="{% url 'account:login' %}">Login</a>
+        </li>
+        <li class="nav-item">
+          <a class="btn btn-sm btn-primary px-3" href="{% url 'account:register' %}">Sign up</a>
+        </li>
+        {% endif %}
+
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ✅ پنجره پاپ‌آپ (Modal) همراه با فرم ثبت استوری -->
+{% if user.is_authenticated %}
+<div class="modal fade" id="addStoryModal" tabindex="-1" aria-labelledby="addStoryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary text-light shadow-lg">
+      
+      <!-- هدر مودال -->
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title fw-bold" id="addStoryModalLabel">
+          <i class="fas fa-camera-retro text-primary me-2"></i> Create New Story
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{% url 'home:home' %}" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="modal-body">
+          <!-- انتخاب فایل عکس یا ویدیو -->
+          <div class="mb-3">
+            {{ form.as_p }}
+            <div class="form-text text-muted extra-small mt-1">Stories automatically disappear after 24 hours.</div>
+          </div>
+        </div>
+
+        <!-- دکمه‌های کنترل فرم -->
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary px-4 fw-bold">Share Story</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+/* Utilities */
+.hover-underline:hover { text-decoration: underline !important; }
+.icon-circle { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.bg-secondary-dark { background-color: #2b2f35; }
+.extra-small { font-size: 0.75rem; }
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+
+/* Bell Animation */
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  10%  { transform: rotate(15deg); }
+  20%  { transform: rotate(-12deg); }
+  30%  { transform: rotate(10deg); }
+  40%  { transform: rotate(-8deg); }
+  50%  { transform: rotate(5deg); }
+  60%  { transform: rotate(-3deg); }
+}
+
+.bell-ring {
+  animation: bell-ring 1.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bell-ring { animation: none; }
+}
+
+/* Dropdown items hover behavior in dark mode */
+.dropdown-item:hover {
+  background-color: #343a40;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 576px) {
+  .notif-dropdown {
+    width: calc(100vw - 1.5rem) !important;
+    position: absolute !important;
+    right: -10px !important;
+    left: auto !important;
+  }
+}
+/* استایل‌های اختصاصی برای آیتم‌های ساخته شده توسط جاوااسکریپت */
+.notif-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: #f8f9fa;
+  border-bottom: 1px solid #3d4146;
+  transition: background-color 0.2s;
+}
+.notif-item:hover {
+  background-color: #343a40;
+  color: #fff;
+}
+.notif-item--unread {
+  background-color: rgba(13, 110, 253, 0.15); 
+}
+.notif-avatar-wrapper {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+.notif-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.notif-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  background-color: #0d6efd;
+  border: 2px solid #212529;
+  border-radius: 50%;
+}
+.notif-body {
+  flex-grow: 1;
+}
+.notif-text {
+  margin-bottom: 2px;
+  font-size: 0.875rem;
+}
+.notif-time {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+#notifDropdown .notif-badge {
+  position: absolute;
+  top: 0;
+  left: 65%;
+  background-color: #dc3545;
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 50rem;
+}
+
+/* ✅ انیمیشن بزرگ شدن دکمه استوری موقع هاور کردن */
+.btn-add-story {
+  transition: transform 0.2s ease;
+}
+.btn-add-story:hover {
+  transform: scale(1.15);
+}
+
+/* === Add Story Modal === */
+#addStoryModal .modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1e1e24 0%, #17171b 100%);
+}
+
+#addStoryModal .modal-header {
+  padding: 1.1rem 1.5rem;
+}
+
+#addStoryModal .modal-title {
+  font-size: 1.05rem;
+  letter-spacing: 0.2px;
+}
+
+#addStoryModal .modal-title i {
+  filter: drop-shadow(0 0 6px rgba(13, 110, 253, 0.5));
+}
+
+#addStoryModal .modal-body {
+  padding: 1.5rem;
+}
+
+/* Style Django's auto-rendered form.as_p output */
+#addStoryModal .modal-body p {
+  margin-bottom: 1rem;
+}
+
+#addStoryModal .modal-body label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #adb5bd;
+  margin-bottom: 0.4rem;
+}
+
+#addStoryModal .modal-body input[type="text"],
+#addStoryModal .modal-body input[type="file"],
+#addStoryModal .modal-body textarea,
+#addStoryModal .modal-body select {
+  width: 100%;
+  background-color: #2a2a30;
+  border: 1px solid #3a3a42;
+  border-radius: 10px;
+  color: #f1f1f1;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+#addStoryModal .modal-body input[type="text"]:focus,
+#addStoryModal .modal-body textarea:focus,
+#addStoryModal .modal-body select:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+  background-color: #303038;
+}
+
+/* File input specific styling */
+#addStoryModal .modal-body input[type="file"] {
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+#addStoryModal .modal-body input[type="file"]::file-selector-button {
+  background-color: #0d6efd;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-right: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+#addStoryModal .modal-body input[type="file"]::file-selector-button:hover {
+  background-color: #0b5ed7;
+}
+
+.extra-small {
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+/* Footer buttons */
+#addStoryModal .modal-footer {
+  padding: 1rem 1.5rem;
+  gap: 0.5rem;
+}
+
+#addStoryModal .btn-outline-secondary {
+  border-color: #444;
+  color: #ccc;
+  transition: all 0.2s ease;
+}
+
+#addStoryModal .btn-outline-secondary:hover {
+  background-color: #2c2c33;
+  border-color: #555;
+  color: #fff;
+}
+
+#addStoryModal .btn-primary {
+  background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+  border: none;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+#addStoryModal .btn-primary:hover {
+  background: linear-gradient(135deg, #0b5ed7, #0a58ca);
+  box-shadow: 0 4px 16px rgba(13, 110, 253, 0.45);
+}
+
+/* Fade-in animation for the modal dialog */
+#addStoryModal .modal-dialog {
+  transform: translateY(-20px);
+  transition: transform 0.3s ease-out;
+}
+
+#addStoryModal.show .modal-dialog {
+  transform: translateY(0);
+}
+</style>

@@ -1,0 +1,848 @@
+{% extends 'base.html' %}
+
+{% block title %}API Documentation{% endblock title %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --bg-panel:#12151C;
+    --bg-card:#161A22;
+    --line:#232833;
+    --text:#E7E9EE;
+    --text-dim:#8891A3;
+    --text-faint:#565E6E;
+    --get:#5EEAD4;
+    --get-bg:rgba(94,234,212,0.10);
+    --post:#F5A524;
+    --post-bg:rgba(245,165,36,0.10);
+    --delete:#FB7185;
+    --delete-bg:rgba(251,113,133,0.10);
+    --accent:#7C9CFF;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'Inter', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.7;
+    min-height:100vh;
+  }
+  ::selection{background:var(--accent); color:#0A0C10;}
+
+  /* Layout */
+  .wrap{
+    display:grid;
+    grid-template-columns:280px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width:900px){
+    .wrap{grid-template-columns:1fr;}
+    .sidebar{position:relative; height:auto; top:0;}
+  }
+
+  /* Sidebar */
+  .sidebar{
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+    background:var(--bg-panel);
+    border-right:1px solid var(--line);
+    padding:28px 22px;
+  }
+  .brand{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    margin-bottom:6px;
+  }
+  .brand-mark{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:2px;
+    color:var(--accent);
+    text-transform:uppercase;
+  }
+  .brand-title{
+    font-size:20px;
+    font-weight:800;
+  }
+  .brand-sub{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-faint);
+    margin-bottom:26px;
+  }
+  .nav-group{margin-bottom:22px;}
+  .nav-group h4{
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:10px;
+    padding-left:2px;
+  }
+  .nav-group a{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    text-decoration:none;
+    color:var(--text-dim);
+    font-size:13.5px;
+    padding:7px 8px;
+    border-radius:7px;
+    transition:background .15s, color .15s;
+  }
+  .nav-group a:hover{background:#1B202A; color:var(--text);}
+  .nav-tag{
+    font-family:var(--mono);
+    font-size:9.5px;
+    font-weight:700;
+    padding:2px 6px;
+    border-radius:4px;
+    letter-spacing:.5px;
+    flex-shrink:0;
+    min-width:38px;
+    text-align:center;
+  }
+  .tag-GET{color:var(--get); background:var(--get-bg);}
+  .tag-POST{color:var(--post); background:var(--post-bg);}
+  .tag-DELETE{color:var(--delete); background:var(--delete-bg);}
+
+  /* Main */
+  main{padding:52px 60px 120px; max-width:920px;}
+  @media (max-width:900px){main{padding:36px 22px 90px;}}
+
+  .hero{margin-bottom:56px;}
+  .hero-eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--accent);
+    letter-spacing:2px;
+    text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  .hero h1{
+    font-size:38px;
+    font-weight:800;
+    letter-spacing:-0.5px;
+    margin-bottom:16px;
+  }
+  .hero p{
+    color:var(--text-dim);
+    font-size:15.5px;
+    max-width:640px;
+  }
+  .hero-meta{
+    display:flex;
+    gap:10px;
+    margin-top:24px;
+    flex-wrap:wrap;
+  }
+  .pill{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-dim);
+    background:var(--bg-card);
+    border:1px solid var(--line);
+    padding:6px 12px;
+    border-radius:999px;
+  }
+  .pill b{color:var(--text);}
+
+  section.group{margin-bottom:52px;}
+  .group-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:14px;
+    margin-bottom:22px;
+  }
+  .group-head .num{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-faint);
+  }
+  .group-head h2{
+    font-size:20px;
+    font-weight:700;
+  }
+  .group-desc{
+    color:var(--text-faint);
+    font-size:13px;
+    margin-left:auto;
+  }
+
+  /* Endpoint card */
+  .endpoint{
+    background:var(--bg-card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    margin-bottom:16px;
+    overflow:hidden;
+  }
+  .endpoint-head{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:16px 18px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .method{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:11.5px;
+    letter-spacing:.5px;
+    padding:5px 10px;
+    border-radius:6px;
+    flex-shrink:0;
+    min-width:58px;
+    text-align:center;
+  }
+  .method-GET{color:var(--get); background:var(--get-bg);}
+  .method-POST{color:var(--post); background:var(--post-bg);}
+  .method-DELETE{color:var(--delete); background:var(--delete-bg);}
+
+  .ep-path{
+    font-family:var(--mono);
+    font-size:14px;
+    color:var(--text);
+    flex:1;
+  }
+  .ep-path .param{color:var(--accent);}
+  .ep-name{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-faint);
+    flex-shrink:0;
+  }
+  .chevron{
+    color:var(--text-faint);
+    transition:transform .2s;
+    flex-shrink:0;
+    font-size:12px;
+  }
+  .endpoint.open .chevron{transform:rotate(90deg);}
+
+  .endpoint-body{
+    display:none;
+    padding:0 18px 20px;
+    border-top:1px solid var(--line);
+  }
+  .endpoint.open .endpoint-body{display:block;}
+  .ep-desc{
+    color:var(--text-dim);
+    font-size:13.5px;
+    margin:16px 0;
+    max-width:620px;
+  }
+
+  .ep-cols{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    margin-top:6px;
+  }
+  @media (max-width:640px){.ep-cols{grid-template-columns:1fr;}}
+
+  .subhead{
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:8px;
+  }
+
+  table.params{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+  }
+  table.params th{
+    text-align:left;
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--text-faint);
+    padding:6px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  table.params td{
+    padding:8px;
+    border-bottom:1px solid var(--line);
+    color:var(--text-dim);
+  }
+  table.params td:first-child{
+    font-family:var(--mono);
+    color:var(--text);
+  }
+  table.params tr:last-child td{border-bottom:none;}
+
+  .auth-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--post);
+    background:var(--post-bg);
+    padding:4px 9px;
+    border-radius:6px;
+  }
+  .auth-badge.none{color:var(--text-faint); background:#1B202A;}
+
+  pre.code{
+    background:#0D1017;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:14px;
+    font-family:var(--mono);
+    font-size:12px;
+    color:#C9D1E0;
+    overflow-x:auto;
+    line-height:1.6;
+  }
+  pre.code .k{color:var(--accent);}
+  pre.code .s{color:var(--get);}
+  pre.code .c{color:var(--text-faint);}
+
+  footer{
+    border-top:1px solid var(--line);
+    margin-top:40px;
+    padding-top:24px;
+    color:var(--text-faint);
+    font-size:12.5px;
+    font-family:var(--mono);
+  }
+
+  .note{
+    display:flex;
+    gap:10px;
+    background:var(--post-bg);
+    border:1px solid rgba(245,165,36,0.25);
+    border-radius:8px;
+    padding:10px 14px;
+    font-size:12.5px;
+    color:#E8C288;
+    margin-top:14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">v1 · REST</span>
+      <span class="brand-title">Social App</span>
+    </div>
+    <div class="brand-sub">urls.py endpoint reference</div>
+
+    <div class="nav-group">
+      <h4>Auth</h4>
+      <a href="#auth"><span class="nav-tag tag-POST">POST</span> Token / Refresh</a>
+    </div>
+
+    <div class="nav-group">
+      <h4>Posts</h4>
+      <a href="#posts"><span class="nav-tag tag-GET">GET</span> Feed / Detail / Explore</a>
+      <a href="#posts"><span class="nav-tag tag-POST">POST</span> Create / Like / Save</a>
+    </div>
+
+    <div class="nav-group">
+      <h4>Profile & Follow</h4>
+      <a href="#profile"><span class="nav-tag tag-GET">GET</span> Profile / Followers</a>
+      <a href="#profile"><span class="nav-tag tag-POST">POST</span> Edit / Follow</a>
+    </div>
+
+    <div class="nav-group">
+      <h4>Stories</h4>
+      <a href="#story"><span class="nav-tag tag-GET">GET</span> View Stories</a>
+      <a href="#story"><span class="nav-tag tag-POST">POST</span> Create / Delete</a>
+    </div>
+
+    <div class="nav-group">
+      <h4>Notifications</h4>
+      <a href="#notif"><span class="nav-tag tag-GET">GET</span> List Notifications</a>
+      <a href="#notif"><span class="nav-tag tag-POST">POST</span> Mark as Read</a>
+    </div>
+
+    <div class="nav-group">
+      <h4>User Moderation</h4>
+      <a href="#block"><span class="nav-tag tag-POST">POST</span> Block / Unblock</a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main>
+    <div class="hero">
+      <div class="hero-eyebrow">API Reference</div>
+      <h1>Application API Docs</h1>
+      <p>This page documents every route defined in the project's <code style="font-family:var(--mono); color:var(--accent);">urls.py</code> as an endpoint card. HTTP methods are inferred from each view's name and typical behavior — confirm them against your actual view code before relying on this in production.</p>
+      <div class="hero-meta">
+        <span class="pill">Base URL: <b>/</b></span>
+        <span class="pill">Auth: <b>JWT (SimpleJWT)</b></span>
+        <span class="pill"><b>22</b> Endpoints</span>
+      </div>
+      <div class="note">⚠ A few paths (e.g. <b style="font-family:var(--mono);">profile/edite/</b>) keep the exact spelling from your urls.py so they match your code.</div>
+    </div>
+
+    <!-- AUTH -->
+    <section class="group" id="auth">
+      <div class="group-head">
+        <span class="num">01</span>
+        <h2>Authentication</h2>
+        <span class="group-desc">JWT tokens via SimpleJWT</span>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/token/access/</span>
+          <span class="ep-name">token_obtain_pair</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Log in and obtain an access / refresh token pair.</p>
+          <div class="ep-cols">
+            <div>
+              <div class="subhead">Body</div>
+              <table class="params">
+                <tr><th>Field</th><th>Description</th></tr>
+                <tr><td>username</td><td>Username</td></tr>
+                <tr><td>password</td><td>Password</td></tr>
+              </table>
+              <div style="margin-top:12px;"><span class="auth-badge none">No token required</span></div>
+            </div>
+            <div>
+              <div class="subhead">Response 200</div>
+              <pre class="code">{
+  <span class="s">"access"</span>: <span class="k">"eyJhbGciOi..."</span>,
+  <span class="s">"refresh"</span>: <span class="k">"eyJhbGciOi..."</span>
+}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/token/refresh/</span>
+          <span class="ep-name">token_refresh</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Get a new access token using a valid refresh token.</p>
+          <div class="ep-cols">
+            <div>
+              <div class="subhead">Body</div>
+              <table class="params">
+                <tr><th>Field</th><th>Description</th></tr>
+                <tr><td>refresh</td><td>Valid refresh token</td></tr>
+              </table>
+            </div>
+            <div>
+              <div class="subhead">Response 200</div>
+              <pre class="code">{
+  <span class="s">"access"</span>: <span class="k">"eyJhbGciOi..."</span>
+}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- POSTS -->
+    <section class="group" id="posts">
+      <div class="group-head">
+        <span class="num">02</span>
+        <h2>Posts</h2>
+        <span class="group-desc">Feed, detail, create, like, save</span>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/</span>
+          <span class="ep-name">list_post</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">List posts for the home feed.</p>
+          <span class="auth-badge">Token required</span>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/<span class="param">{pk}</span>/</span>
+          <span class="ep-name">detail_post</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Detail view of a single post by id.</p>
+          <div class="subhead">Path Params</div>
+          <table class="params">
+            <tr><th>Param</th><th>Type</th></tr>
+            <tr><td>pk</td><td>int — post id</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/explore/</span>
+          <span class="ep-name">explore</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Suggested posts for discovering new content.</p>
+          <span class="auth-badge">Token required</span>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/create/post/</span>
+          <span class="ep-name">create_post</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Create a new post.</p>
+          <div class="ep-cols">
+            <div>
+              <div class="subhead">Body (multipart/form-data)</div>
+              <table class="params">
+                <tr><th>Field</th><th>Description</th></tr>
+                <tr><td>image</td><td>Post image file</td></tr>
+                <tr><td>caption</td><td>Post caption text</td></tr>
+              </table>
+            </div>
+            <div>
+              <div class="subhead">Auth</div>
+              <span class="auth-badge">Token required</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/like/post/<span class="param">{pk}</span>/</span>
+          <span class="ep-name">like_post</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Like or unlike a post (toggle) by id.</p>
+          <table class="params">
+            <tr><th>Param</th><th>Type</th></tr>
+            <tr><td>pk</td><td>int — post id</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/save/<span class="param">{pk}</span>/post/</span>
+          <span class="ep-name">save_post</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Save or unsave a post (toggle) by id.</p>
+          <table class="params">
+            <tr><th>Param</th><th>Type</th></tr>
+            <tr><td>pk</td><td>int — post id</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/saved/</span>
+          <span class="ep-name">saved</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">List posts saved by the current user.</p>
+          <span class="auth-badge">Token required</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="group" id="profile">
+      <div class="group-head">
+        <span class="num">03</span>
+        <h2>Profile & Follow</h2>
+        <span class="group-desc">View, edit, following/followers</span>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/profile/<span class="param">{username}</span>/</span>
+          <span class="ep-name">profile</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Profile info and posts for the given user.</p>
+          <table class="params">
+            <tr><th>Param</th><th>Type</th></tr>
+            <tr><td>username</td><td>str — username</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/profile/edite/<span class="param">{username}</span>/</span>
+          <span class="ep-name">edite_profile</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Edit profile info (only allowed for the account owner).</p>
+          <div class="ep-cols">
+            <div>
+              <div class="subhead">Body</div>
+              <table class="params">
+                <tr><th>Field</th><th>Description</th></tr>
+                <tr><td>bio</td><td>Biography text</td></tr>
+                <tr><td>avatar</td><td>Profile picture</td></tr>
+              </table>
+            </div>
+            <div>
+              <div class="subhead">Auth</div>
+              <span class="auth-badge">Account owner</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/profile/following/<span class="param">{username}</span>/</span>
+          <span class="ep-name">following</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">List of users this account follows.</p>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/profile/followers/<span class="param">{username}</span>/</span>
+          <span class="ep-name">follower</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">List of this account's followers.</p>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/follow/<span class="param">{username}</span>/</span>
+          <span class="ep-name">follow_and_unfollow</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Follow or unfollow a user (toggle).</p>
+          <table class="params">
+            <tr><th>Param</th><th>Type</th></tr>
+            <tr><td>username</td><td>str — target user</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- STORY -->
+    <section class="group" id="story">
+      <div class="group-head">
+        <span class="num">04</span>
+        <h2>Stories</h2>
+        <span class="group-desc">Create, view, delete, and expire old stories</span>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/my/story/</span>
+          <span class="ep-name">my_story</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">List the current user's stories.</p>
+          <span class="auth-badge">Token required</span>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/story/<span class="param">{username}</span>/</span>
+          <span class="ep-name">story_them</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">View stories belonging to a specific user.</p>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/create/story/</span>
+          <span class="ep-name">creat_story</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Upload a new story.</p>
+          <table class="params">
+            <tr><th>Field</th><th>Description</th></tr>
+            <tr><td>media</td><td>Image or video file</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-DELETE">DELETE</span>
+          <span class="ep-path">/delete/story/<span class="param">{pk}</span>/</span>
+          <span class="ep-name">delete_story</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Delete a story by id (owner only).</p>
+          <div class="note">🛈 If the current view accepts GET/POST for deletion, consider switching it to the standard DELETE method.</div>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/update/story/</span>
+          <span class="ep-name">delete_old_story</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Clean up expired stories (older than 24 hours). Usually called internally or via a cron job.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- NOTIFICATIONS -->
+    <section class="group" id="notif">
+      <div class="group-head">
+        <span class="num">05</span>
+        <h2>Notifications</h2>
+        <span class="group-desc">Fetch and mark notifications as read</span>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-GET">GET</span>
+          <span class="ep-path">/notifications/</span>
+          <span class="ep-name">all_notification</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">List all notifications for the current user.</p>
+          <span class="auth-badge">Token required</span>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/read/notification/</span>
+          <span class="ep-name">notification_read</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Mark notifications as read.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- BLOCK -->
+    <section class="group" id="block">
+      <div class="group-head">
+        <span class="num">06</span>
+        <h2>User Moderation</h2>
+        <span class="group-desc">Block and unblock users</span>
+      </div>
+
+      <div class="endpoint open">
+        <div class="endpoint-head" onclick="toggle(this)">
+          <span class="method method-POST">POST</span>
+          <span class="ep-path">/block/<span class="param">{username}</span>/</span>
+          <span class="ep-name">block_unblock_user</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Block or unblock a user (toggle, based on whether a BlockUser record exists).</p>
+          <div class="ep-cols">
+            <div>
+              <div class="subhead">Path Params</div>
+              <table class="params">
+                <tr><th>Param</th><th>Type</th></tr>
+                <tr><td>username</td><td>str — target user</td></tr>
+              </table>
+              <div class="note">⚠ If the view uses <code style="font-family:var(--mono);">BlockUser.objects.get(...)</code>, wrap it in try/except or use <code style="font-family:var(--mono);">filter().first()</code> to avoid a DoesNotExist error.</div>
+            </div>
+            <div>
+              <div class="subhead">Response 200</div>
+              <pre class="code">{
+  <span class="s">"status"</span>: <span class="k">"blocked"</span>,
+  <span class="s">"username"</span>: <span class="k">"target_user"</span>
+}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Generated from the project's urls.py · v1.0
+    </footer>
+  </main>
+</div>
+
+<script>
+  function toggle(headEl){
+    const card = headEl.parentElement;
+    card.classList.toggle('open');
+  }
+</script>
+
+</body>
+</html>
+{% endblock content %}

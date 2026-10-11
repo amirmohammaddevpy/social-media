@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #000;
+}
+
+.story-viewer {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body.story-open > *:not(.story-viewer) {
+    display: none !important;
+}
+
+.story-progress-container {
+    display: flex;
+    gap: 4px;
+    padding: 10px 10px 0;
+}
+.story-progress-bar {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.story-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #fff;
+}
+.story-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    color: #fff;
+}
+.story-header img {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #333;
+}
+.story-header span {
+    font-size: 14px;
+    font-weight: 500;
+    flex: 1;
+}
+.story-close,
+.story-delete {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.story-delete {
+    font-size: 18px;
+    opacity: .9;
+}
+.story-delete:disabled {
+    opacity: .4;
+    cursor: default;
+}
+.story-media-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    cursor: pointer;
+    position: relative;
+}
+.story-media {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+.story-loading {
+    position: absolute;
+    color: #fff;
+    font-size: 13px;
+    font-family: sans-serif;
+    opacity: .7;
+}
+.empty-msg {
+    color: #ccc;
+    text-align: center;
+    margin: auto;
+    font-family: sans-serif;
+}
+
+/* simple delete confirmation popover */
+.delete-confirm {
+    position: absolute;
+    top: 54px;
+    right: 14px;
+    background: #1c1c1e;
+    border-radius: 10px;
+    padding: 12px;
+    color: #fff;
+    font-family: sans-serif;
+    font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    display: none;
+    z-index: 2;
+    min-width: 180px;
+}
+.delete-confirm.show { display: block; }
+.delete-confirm p { margin: 0 0 10px; }
+.delete-confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.delete-confirm-actions button {
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.delete-confirm-cancel { background: #3a3a3c; color: #fff; }
+.delete-confirm-ok { background: #ff453a; color: #fff; }
+</style>
+
+<div class="story-viewer" id="storyViewer">
+    <div class="story-progress-container" id="progressContainer"></div>
+    <div class="story-header">
+        <img id="viewerAvatar" src="" alt="">
+        <span id="viewerUsername"></span>
+        <button type="button" class="story-delete" id="deleteBtn" title="Delete story" style="display:none;">&#128465;</button>
+        <button type="button" class="story-close" onclick="closeStory()">&times;</button>
+    </div>
+    <div class="story-media-wrap" id="mediaWrap">
+        <div class="delete-confirm" id="deleteConfirm">
+            <p>Delete this story?</p>
+            <div class="delete-confirm-actions">
+                <button type="button" class="delete-confirm-cancel" id="deleteCancelBtn">Cancel</button>
+                <button type="button" class="delete-confirm-ok" id="deleteOkBtn">Delete</button>
+            </div>
+        </div>
+        <div class="story-loading" id="loadingIndicator" style="display:none;">loading...</div>
+        <img id="storyImage" class="story-media" style="display:none;" alt="">
+        <video id="storyVideo" class="story-media" style="display:none;" playsinline></video>
+    </div>
+</div>
+
+{{ stories_json|json_script:"stories-data" }}
+{% csrf_token %}
+
+<script>
+// FIX: move the viewer to be a direct child of <body>.
+document.body.prepend(document.getElementById('storyViewer'));
+
+let storiesData = JSON.parse(document.getElementById('stories-data').textContent);
+const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+// Absolute URL template for deleting a story, built server-side from the
+// named url pattern so it always resolves correctly regardless of the
+// current page's path. The placeholder pk (0) is swapped for the real id
+// at call time.
+const deleteUrlTemplate = "{% url 'story:delete_story' pk=0 %}";
+function buildDeleteUrl(storyId) {
+    return deleteUrlTemplate.replace('/0/', `/${storyId}/`);
+}
+
+const IMAGE_DURATION = 5000;
+const HOLD_THRESHOLD = 180;
+
+let currentIndex = 0;
+let rafId = null;
+let startTime = null;
+let elapsedBeforePause = 0;
+let isPaused = false;
+let isHolding = false;
+let holdTimer = null;
+
+const mediaWrap = document.getElementById('mediaWrap');
+const progressContainer = document.getElementById('progressContainer');
+const imgEl = document.getElementById('storyImage');
+const videoEl = document.getElementById('storyVideo');
+const avatarEl = document.getElementById('viewerAvatar');
+const usernameEl = document.getElementById('viewerUsername');
+const loadingEl = document.getElementById('loadingIndicator');
+const deleteBtn = document.getElementById('deleteBtn');
+const deleteConfirm = document.getElementById('deleteConfirm');
+const deleteCancelBtn = document.getElementById('deleteCancelBtn');
+const deleteOkBtn = document.getElementById('deleteOkBtn');
+
+function buildProgressBars() {
+    progressContainer.innerHTML = '';
+    storiesData.forEach(() => {
+        const bar = document.createElement('div');
+        bar.className = 'story-progress-bar';
+        const fill = document.createElement('div');
+        fill.className = 'story-progress-fill';
+        bar.appendChild(fill);
+        progressContainer.appendChild(bar);
+    });
+}
+
+function setBarWidth(index, percent) {
+    const bar = progressContainer.children[index];
+    if (bar) bar.firstElementChild.style.width = percent + '%';
+}
+
+function closeStory() {
+    if (document.referrer) {
+        window.history.back();
+    } else {
+        window.location.href = "{% url 'home:home' %}";
+    }
+}
+
+function redirectToHome() {
+    window.location.href = "{% url 'home:home' %}";
+}
+
+function handleKeydown(e) {
+    if (e.key === 'Escape') {
+        if (deleteConfirm.classList.contains('show')) {
+            hideDeleteConfirm();
+        } else {
+            closeStory();
+        }
+    } else if (e.key === 'ArrowLeft') {
+        goTo(currentIndex - 1);
+    } else if (e.key === 'ArrowRight') {
+        goTo(currentIndex + 1);
+    }
+}
+
+function goTo(index) {
+    hideDeleteConfirm();
+
+    if (index < 0) {
+        closeStory();
+        return;
+    }
+    if (index >= storiesData.length) {
+        closeStory();
+        return;
+    }
+
+    currentIndex = index;
+    cancelAnimationFrame(rafId);
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
+    loadingEl.style.display = 'none';
+
+    storiesData.forEach((_, i) => setBarWidth(i, i < index ? 100 : 0));
+
+    const story = storiesData[index];
+    if (story.avatar) avatarEl.src = story.avatar;
+    usernameEl.textContent = story.username;
+
+    // FIX: only show the delete button when the current user actually
+    // owns this story (server tells us via story.can_delete). Previously
+    // this was forced to always show, letting anyone see (and try) the
+    // delete action on other users' stories.
+    deleteBtn.style.display = story.can_delete ? 'inline-block' : 'none';
+    isPaused = false;
+
+    if (story.type === 'video') {
+        imgEl.style.display = 'none';
+        videoEl.style.display = 'block';
+        loadingEl.style.display = 'block';
+        videoEl.src = story.url;
+        videoEl.currentTime = 0;
+        videoEl.oncanplay = () => { loadingEl.style.display = 'none'; };
+        videoEl.ontimeupdate = () => {
+            if (videoEl.duration) {
+                setBarWidth(currentIndex, (videoEl.currentTime / videoEl.duration) * 100);
+            }
+        };
+        videoEl.onended = () => goTo(currentIndex + 1);
+        videoEl.onerror = () => goTo(currentIndex + 1);
+        videoEl.play().catch(() => {});
+    } else {
+        videoEl.style.display = 'none';
+        imgEl.style.display = 'block';
+        imgEl.src = story.url;
+        imgEl.onerror = () => goTo(currentIndex + 1);
+        elapsedBeforePause = 0;
+        startTime = performance.now();
+        rafId = requestAnimationFrame(tickImageProgress);
+    }
+}
+
+function tickImageProgress(now) {
+    if (isPaused) return;
+    const elapsed = elapsedBeforePause + (now - startTime);
+    setBarWidth(currentIndex, Math.min(elapsed / IMAGE_DURATION, 1) * 100);
+    if (elapsed >= IMAGE_DURATION) {
+        goTo(currentIndex + 1);
+        return;
+    }
+    rafId = requestAnimationFrame(tickImageProgress);
+}
+
+function pauseStory() {
+    if (isPaused) return;
+    isPaused = true;
+    if (storiesData[currentIndex].type === 'video') {
+        videoEl.pause();
+    } else {
+        elapsedBeforePause += performance.now() - startTime;
+        cancelAnimationFrame(rafId);
+    }
+}
+
+function resumeStory() {
+    if (!isPaused) return;
+    isPaused = false;
+    if (storiesData[currentIndex].type === 'video') {
+        videoEl.play().catch(() => {});
+    } else {
+        startTime = performance.now();
+        rafId = requestAnimationFrame(tickImageProgress);
+    }
+}
+
+function showDeleteConfirm() {
+    pauseStory();
+    deleteConfirm.classList.add('show');
+}
+
+function hideDeleteConfirm() {
+    deleteConfirm.classList.remove('show');
+}
+
+deleteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showDeleteConfirm();
+});
+
+deleteCancelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideDeleteConfirm();
+    resumeStory();
+});
+
+deleteOkBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const story = storiesData[currentIndex];
+    deleteOkBtn.disabled = true;
+    deleteBtn.disabled = true;
+
+    try {
+        // FIX: use an absolute, server-resolved URL instead of a
+        // hardcoded relative path so this works regardless of which
+        // page path the viewer is loaded under.
+        const res = await fetch(buildDeleteUrl(story.id), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+        });
+
+        if (!res.ok) throw new Error('Delete failed');
+
+        storiesData.splice(currentIndex, 1);
+        hideDeleteConfirm();
+        buildProgressBars();
+
+        if (!storiesData.length) {
+            redirectToHome();
+            return;
+        }
+
+        goTo(Math.min(currentIndex, storiesData.length - 1));
+    } catch (err) {
+        alert('Could not delete story. Please try again.');
+        hideDeleteConfirm();
+        resumeStory();
+    } finally {
+        deleteOkBtn.disabled = false;
+        deleteBtn.disabled = false;
+    }
+});
+
+mediaWrap.addEventListener('pointerdown', (e) => {
+    if (deleteConfirm.contains(e.target)) return;
+    isHolding = false;
+    holdTimer = setTimeout(() => {
+        isHolding = true;
+        pauseStory();
+    }, HOLD_THRESHOLD);
+});
+
+mediaWrap.addEventListener('pointerup', (e) => {
+    if (deleteConfirm.contains(e.target)) return;
+    clearTimeout(holdTimer);
+    if (isHolding) {
+        resumeStory();
+        isHolding = false;
+        return;
+    }
+    if (deleteConfirm.classList.contains('show')) {
+        hideDeleteConfirm();
+        resumeStory();
+        return;
+    }
+    const rect = mediaWrap.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width * 0.3) {
+        goTo(currentIndex - 1);
+    } else {
+        goTo(currentIndex + 1);
+    }
+});
+
+mediaWrap.addEventListener('pointerleave', () => {
+    clearTimeout(holdTimer);
+    if (isHolding) {
+        resumeStory();
+        isHolding = false;
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!storiesData.length) {
+        redirectToHome();
+        return;
+    }
+    document.body.classList.add('story-open');
+    document.body.style.overflow = 'hidden';
+    buildProgressBars();
+    goTo(0);
+    document.addEventListener('keydown', handleKeydown);
+});
+</script>
+{% endblock content %}

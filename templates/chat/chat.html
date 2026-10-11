@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block title %}
+Chat Room
+{% endblock title %}
+
+{% block content %}
+
+<style>
+.parent {
+display: grid;
+grid-template-columns: repeat(5, 1fr);
+grid-template-rows: repeat(5, 1fr);
+grid-column-gap: 0px;
+grid-row-gap: 0px;
+}
+
+.div1 { grid-area: 1 / 1 / 6 / 3; }
+</style>
+
+<div class="parent">
+    <style>
+    .chat-container {
+    max-width: 600px;
+    margin: 40px auto;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    height: 70vh;
+}
+
+.chat-header {
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.chat-header h4 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.chat-log {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.chat-message {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.chat-message.me {
+    justify-content: flex-end;
+}
+
+.chat-message.other {
+    justify-content: flex-start;
+}
+
+.bubble {
+    max-width: 70%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+}
+
+.chat-message.me .bubble {
+    border-bottom-right-radius: 4px;
+}
+
+.chat-message.other .bubble {
+    border-bottom-left-radius: 4px;
+}
+
+.sender {
+    font-size: 11px;
+    opacity: 0.6;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.msg-time {
+    font-size: 10px;
+    opacity: 0.55;
+}
+
+.msg-ticks {
+    font-size: 12px;
+    line-height: 1;
+    display: inline-flex;
+}
+
+.msg-ticks.sent {
+    opacity: 0.55;
+}
+
+.msg-ticks.seen {
+    color: #0d6efd;
+    opacity: 1;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+    padding: 14px;
+    border-top: 1px solid #eee;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 20px;
+    border: 1px solid #ddd;
+    outline: none;
+}
+
+.chat-input input:focus {
+    border-color: #0d6efd;
+}
+
+.chat-input button {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+}
+
+.chat-input button:hover {
+    opacity: 0.9;
+}
+
+.empty-chat {
+    padding: 20px;
+    text-align: center;
+}
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* پخش کردن عناصر در دو طرف */
+    direction: rtl;
+    padding: 10px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* فاصله عکس و اسم */
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.username {
+    font-weight: bold;
+}
+
+.chat-type {
+    color: #666; /* رنگ دلخواه برای Private Chat */
+}
+
+</style>
+<div class="chat-container">
+<div class="chat-header">
+    <div class="user-info">
+        <img src="{{other_user.avatar.url}}" alt="{{username}}" class="user-avatar">
+        <span class="username">{{username}}</span>
+    </div>
+    <span class="chat-type">Private Chat</span>
+</div>
+
+    {% if message %}
+    <div id="chat-log" class="chat-log">
+        {% for msg in message %}
+            <div class="chat-message {% if msg.sender.username == request.user.username %}me{% else %}other{% endif %}"
+                 data-msg-id="{{ msg.id }}">
+                <div class="bubble">
+                    <span class="sender">{{ msg.sender.username }}</span>
+                    <p>{{ msg.message }}</p>
+                    <div class="meta-row">
+                        <span class="msg-time">{{ msg.created|date:"H:i" }}</span>
+                        {% if msg.sender.username == request.user.username %}
+                            <span class="msg-ticks {% if msg.seen %}seen{% else %}sent{% endif %}">
+                                {% if msg.seen %}✓✓{% else %}✓{% endif %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p class="empty-chat">No messages yet</p>
+    {% endif %}
+
+    {% if is_blocked %}
+        <p class="empty-chat">
+            {% if i_blocked %}
+                You have blocked this user. Unblock them to send messages.
+            {% else %}
+                You can't send messages to this user.
+            {% endif %}
+        </p>
+    {% else %}
+        <div class="chat-input">
+            <input id="chat-message-input" type="text" placeholder="Type a message...">
+            <button id="chat-message-submit">Send</button>
+        </div>
+    {% endif %}
+
+    {{ username|json_script:"other-username" }}
+    {{ request.user.username|json_script:"my-username" }}
+    {{ is_blocked|json_script:"is-blocked" }}
+</div>
+
+
+<script>
+    const chatLog = document.getElementById("chat-log");
+    if (chatLog) {
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const isBlocked = JSON.parse(document.getElementById('is-blocked').textContent);
+
+    if (isBlocked) {
+        // don't open a socket or wire up sending at all
+        return;
+    }
+
+    const chatLog = document.querySelector('#chat-log');
+    const input = document.querySelector('#chat-message-input');
+    const submit = document.querySelector('#chat-message-submit');
+
+    const otherUsername = JSON.parse(document.getElementById('other-username').textContent);
+    const myUsername = JSON.parse(document.getElementById('my-username').textContent);
+
+    const chatSocket = new WebSocket(`ws://${window.location.host}/ws/chat/${otherUsername}/`);
+    console.log("Connecting to room:", otherUsername);
+
+    chatSocket.onopen = () => {
+        console.log('WebSocket connected');
+        // اعلام به سرور که پیام‌های موجود در این چت (که از طرف مقابل اومده) دیده شده
+        markVisibleMessagesAsSeen();
+    };
+
+    function formatTime(dateInput) {
+        const d = dateInput ? new Date(dateInput) : new Date();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    }
+
+    function renderMessage(msgId, sender, message, isMe, timestamp, isRead) {
+        const ticksHtml = isMe
+            ? `<span class="msg-ticks ${isRead ? 'seen' : 'sent'}">${isRead ? '✓✓' : '✓'}</span>`
+            : '';
+
+        return `
+            <div class="chat-message ${isMe ? 'me' : 'other'}" data-msg-id="${msgId ?? ''}">
+                <div class="bubble">
+                    <span class="sender">${sender}</span>
+                    <p>${message}</p>
+                    <div class="meta-row">
+                        <span class="msg-time">${formatTime(timestamp)}</span>
+                        ${ticksHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // وقتی پیامی از طرف مقابل روی صفحه ظاهر میشه، به سرور خبر می‌دیم که دیده شده
+    function markVisibleMessagesAsSeen() {
+        if (chatSocket.readyState !== WebSocket.OPEN) return;
+        chatSocket.send(JSON.stringify({ type: 'seen' }));
+    }
+
+    // آپدیت کردن تیک‌های پیام‌های خودمون به دو تیک آبی وقتی طرف مقابل seen رو فرستاد
+    function markMyMessagesAsSeen() {
+        document.querySelectorAll('.chat-message.me .msg-ticks').forEach(el => {
+            el.classList.remove('sent');
+            el.classList.add('seen');
+            el.textContent = '✓✓';
+        });
+    }
+
+    chatSocket.onmessage = (e) => {
+        try {
+            const data = JSON.parse(e.data);
+
+            // پیام از نوع "seen": یعنی کسی پیام‌ها رو دید
+            // فقط وقتی seer «طرف مقابل» باشه یعنی پیام‌های خودم دیده شده
+            // اگه seer خودم باشم یعنی این خودم بودم که پیام‌های اونو دیدم، نه اونو من
+            if (data.type === 'seen') {
+                if (data.seer !== myUsername) {
+                    markMyMessagesAsSeen();
+                }
+                return;
+            }
+
+            if (!data.message) return;
+
+            const isMe = data.sender === myUsername;
+
+            chatLog.insertAdjacentHTML(
+                "beforeend",
+                renderMessage(
+                    data.id,
+                    data.sender,
+                    data.message,
+                    isMe,
+                    data.created,
+                    data.seen || false
+                )
+            );
+
+            chatLog.scrollTop = chatLog.scrollHeight;
+
+            // اگه پیام از طرف مقابل رسید و ما داریم صفحه رو نگاه می‌کنیم، بلافاصله seen بفرستیم
+            if (!isMe) {
+                markVisibleMessagesAsSeen();
+            }
+
+        } catch (err) {
+            console.error('Invalid JSON:', e.data);
+        }
+    };
+
+    chatSocket.onerror = (e) => console.error('WebSocket error:', e);
+
+    chatSocket.onclose = (e) => {
+        if (e.code === 1000) {
+            console.log('WebSocket closed normally');
+        } else {
+            console.error('WebSocket closed unexpectedly', e.code, e.reason);
+        }
+    };
+
+    function sendMessage() {
+        const message = input.value.trim();
+        if (!message) return;
+
+        if (chatSocket.readyState !== WebSocket.OPEN) {
+            console.error('Socket not ready');
+            return;
+        }
+
+        chatSocket.send(JSON.stringify({ message }));
+        input.value = '';
+    }
+
+    submit.addEventListener('click', sendMessage);
+
+    input.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    // وقتی کاربر برمی‌گرده به تب/صفحه، دوباره seen بفرست
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            markVisibleMessagesAsSeen();
+        }
+    });
+});
+</script>
+<div class="div1"> 
+<h1>
+    <h4 class="mb-3 text-muted">Chats</h4>
+
+    {% if chats %}
+
+        <div class="list-group">
+
+            {% for chat in chats %}
+
+                <a href="{% url 'chats:room' chat.username %}"
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+
+                    <div class="d-flex align-items-center gap-2">
+
+                        <img
+                            src="{{ chat.avatar.url }}"
+                            alt="{{ chat.username }}"
+                            class="rounded-circle"
+                            style="width: 40px; height: 40px; object-fit: cover;"
+                        >
+
+                        <strong>{{ chat.username }}</strong>
+
+                    </div>
+
+                    {% if chat.unread_count > 0 %}
+                        <span class="badge bg-danger rounded-pill">
+                            {{ chat.unread_count }}
+                        </span>
+                    {% endif %}
+
+                </a>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <p class="text-muted text-center mt-3">
+            No chats yet.
+        </p>
+
+    {% endif %}
+
+</h1>
+</div>
+</div>
+
+{% endblock content %}

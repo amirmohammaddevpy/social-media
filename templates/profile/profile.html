@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ profile.username }} Profile{% endblock title %}
+
+{% block content %}
+
+<style>
+.follow-btn {
+  background-color: white;
+  color: black;
+  border: 1px solid #333;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.follow-btn.active {
+  background-color: #1da1f2;
+  color: white;
+}
+
+.block-btn {
+  background-color: white;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.block-btn.active {
+  background-color: #dc3545;
+  color: white;
+}
+
+.blocked-notice {
+  color: #6c757d;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+
+.status-dot.online {
+  background-color: #28a745; /* سبز = آنلاین */
+}
+
+.status-dot.offline {
+  background-color: #ffffff; /* سفید = آفلاین */
+  border: 2px solid #ccc;
+}
+
+.last-seen-text {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+</style>
+
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+
+      <!-- Profile Card -->
+      <div class="card shadow-lg">
+        <div class="card-body text-center">
+
+          <!-- Avatar -->
+          <div class="avatar-wrapper mb-3">
+            {% if they_blocked_me %}
+              <img src="{{ profile.avatar.url }}"
+                   alt="avatar"
+                   class="rounded-circle"
+                   width="120" height="120"
+                   style="object-fit: cover; border: 3px solid #ccc;">
+            {% else %}
+              <img src="{{ profile.avatar.url }}"
+                   alt="avatar"
+                   class="rounded-circle"
+                   width="120" height="120"
+                   style="object-fit: cover; border: 3px solid #007bff;">
+
+              {% if not is_blocked_either_way %}
+                <span id="status-dot" data-username="{{ profile.username }}" class="status-dot {% if online %}online{% else %}offline{% endif %}"></span>
+              {% endif %}
+            {% endif %}
+          </div>
+
+          <!-- Username & Name -->
+          <h3 class="card-title">{{ profile.username }}</h3>
+          <p class="text-muted">{{ profile.first_name }} {{ profile.last_name }}</p>
+
+          <!-- Last seen -->
+          {% if not is_blocked_either_way %}
+            <p id="last-seen-text" class="last-seen-text" data-username="{{ profile.username }}">
+              {% if online %}
+                Online now
+              {% else %}
+                {{ last_seen_seconds }}
+              {% endif %}
+            </p>
+          {% endif %}
+
+          <!-- Stats -->
+          <div class="d-flex justify-content-center my-3 gap-4">
+            <div>
+              <h5>{% if is_blocked_either_way %}-{% else %}{{ post.count }}{% endif %}</h5>
+              <small class="text-muted">Posts</small>
+            </div>
+
+            {% if not is_blocked_either_way %}
+              <div>
+                <h5 id="followers-count">{{ profile.followers.count }}</h5>
+                <a href="{% url 'profiles:followers' profile.username %}"><small class="text-muted">Followers</small></a>
+              </div>
+              <div>
+                <h5>{{ profile.following.count }}</h5>
+                <a href="{% url 'profiles:following' profile.username %}"><small class="text-muted">Following</small></a>
+              </div>
+            {% endif %}
+          </div>
+
+          {% if user == profile %}
+          <div class="d-flex justify-content-center mb-3">
+            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#blockedListModal">
+              Blocked Users
+            </button>
+          </div>
+          {% endif %}
+
+          <!-- Action Buttons -->
+          <div class="d-flex justify-content-center gap-2 flex-wrap">
+            {% if user == profile %}
+              <a href="{% url 'posts:create_post' request.user %}" class="btn btn-success">
+                + Create Post
+              </a>
+              <a href="{% url 'profiles:edit_profile' request.user %}" class="btn btn-outline-primary">
+                Edit Profile
+              </a>
+
+              <form action="{% url 'profiles:delete' user.id %}" method="POST">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                  Delete Account
+                </button>
+              </form>
+
+            {% elif they_blocked_me %}
+              <p class="blocked-notice">This user has blocked you.</p>
+
+            {% elif i_blocked_them %}
+              <p class="blocked-notice">You have blocked this user.</p>
+              <button
+                class="btn block-btn active"
+                data-url="{% url 'profiles:block' profile.username %}"
+                onclick="blockUser(this)">
+                <span class="block-text">Unblock</span>
+              </button>
+
+            {% else %}
+              <button
+                class="btn follow-btn {% if request.user in profile.followers.all %}active{% endif %}"
+                data-url="{% url 'profiles:follow' profile.username %}"
+                onclick="follow(this)">
+                <span class="follow-text">
+                  {% if request.user in profile.followers.all %}
+                    Following
+                  {% else %}
+                    Follow
+                  {% endif %}
+                </span>
+              </button>
+
+              <button class="btn btn-outline-secondary message-btn"
+                data-username="{{ profile.username }}"
+                {% if not request.user in profile.followers.all %}style="display:none"{% endif %}
+                id="room-name-submit">
+                Message
+              </button>
+
+              <button
+                class="btn block-btn"
+                data-url="{% url 'profiles:block' profile.username %}"
+                onclick="blockUser(this)">
+                <span class="block-text">Block</span>
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Posts: در حالت بلاک (از هر دو طرف) اصلا نمایش داده نمی‌شن -->
+      {% if not is_blocked_either_way %}
+      <div class="mt-4">
+        <h5 class="mb-3">Recent Posts</h5>
+        <div class="row g-3">
+          {% for posts in post %}
+            <div class="col-12 col-md-4 position-relative">
+              <div class="card h-100">
+                <div class="position-absolute top-0 end-0 m-2">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-light p-1" type="button" id="dropdownMenuButton{{ posts.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                      &#x22EE;
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ posts.id }}">
+                      <li>
+                        {% if request.user == profile %}
+                          <form method="POST" action="{% url 'posts:delete_post' posts.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item text-danger">Delete</button>
+                          </form>
+                        {% endif %}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <a href="{% url 'posts:detail_post' posts.id %}" class="text-decoration-none text-dark">
+                  <img src="{{ posts.post.url }}" class="card-img-top" alt="{{ posts.title }}">
+                  <div class="card-body">
+                    <p class="card-text">{{ posts.descriptions|default:"No description yet." }}</p>
+                  </div>
+                </a>
+              </div>
+            </div>
+          {% empty %}
+            <p class="text-center text-muted">No posts yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+<!-- Blocked Users Modal -->
+{% if user == profile %}
+<div class="modal fade" id="blockedListModal" tabindex="-1" aria-labelledby="blockedListModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="blockedListModalLabel">Blocked Users</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="list-group" id="blocked-users-list">
+          {% for blocked_user in get_block_user %}
+          <a href="{% url 'profiles:profile' blocked_user.blocked.username %}" class="text-decoration-none">
+            <li class="list-group-item d-flex align-items-center gap-2" data-username="{{ blocked_user.blocked.username }}">
+              <img src="{{ blocked_user.blocked.avatar.url }}" alt="{{ blocked_user.blocked.username }}" width="36" height="36" class="rounded-circle" style="object-fit: cover;">
+                {{ blocked_user.blocked.username }}
+            </li>
+            </a>
+          {% empty %}
+            <li class="list-group-item text-muted">No blocked users.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not is_blocked_either_way and user != profile %}
+<input type="hidden" id="nameroom" value="{{ profile.username }}">
+{% endif %}
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+const nameRoomEl = document.querySelector("#nameroom");
+if (nameRoomEl) {
+  nameRoomEl.focus();
+  nameRoomEl.onkeyup = function (e) {
+    if (e.key === 'Enter') {
+      document.querySelector('#room-name-submit').click();
+    }
+  };
+
+  const submitBtn = document.querySelector('#room-name-submit');
+  if (submitBtn) {
+    submitBtn.onclick = function (e) {
+      const roomName = nameRoomEl.value;
+      window.location.pathname = '/chat/' + roomName + '/';
+    };
+  }
+}
+
+function follow(el) {
+  const url = el.dataset.url;
+  const textEl = el.querySelector('.follow-text');
+  const followersEl = document.getElementById('followers-count');
+  const messageBtn = document.getElementById('room-name-submit');
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrftoken,
+    },
+    body: JSON.stringify({})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+    if (data.status === 'follow') {
+      followersEl.innerText = Number(followersEl.innerText) + 1;
+      textEl.textContent = 'Following';
+      el.classList.add('active');
+      if (messageBtn) messageBtn.style.display = '';
+    } else if (data.status === 'unfollow') {
+      followersEl.innerText = Number(followersEl.innerText) - 1;
+      textEl.textContent = 'Follow';
+      el.classList.remove('active');
+      if (messageBtn) messageBtn.style.display = 'none';
+    }
+  })
+  .catch(err => console.error(err));
+}
+
+function blockUser(el) {
+  const url = el.dataset.url;
+
+  if (!confirm('Are you sure?')) {
+    return;
+  }
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrftoken,
+    },
+    body: JSON.stringify({})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+    // چون پست/فالو/پیام بعد از بلاک باید کامل مخفی بشن، رفرش می‌کنیم
+    location.reload();
+  })
+  .catch(err => console.error(err));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const dot = document.getElementById("status-dot");
+  const lastSeenEl = document.getElementById("last-seen-text");
+  if (!dot && !lastSeenEl) return; // این صفحه پروفایل نیست یا بلاک شده
+
+  const username = (dot || lastSeenEl).dataset.username;
+  let statusTimeout = null;
+
+  function formatLastSeen(seconds) {
+    if (seconds == null) return "Last seen: never";
+    if (seconds < 60) return "Last seen just now";
+
+    const units = [
+      [31536000, "year"], [2592000, "month"], [86400, "day"],
+      [3600, "hour"], [60, "minute"],
+    ];
+    for (const [secs, label] of units) {
+      const val = Math.floor(seconds / secs);
+      if (val >= 1) return `Last seen ${val} ${label}${val > 1 ? "s" : ""} ago`;
+    }
+    return "Last seen just now";
+  }
+
+  function checkStatus() {
+    if (statusTimeout) clearTimeout(statusTimeout);
+
+    fetch('/profile/check/online/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken,
+      },
+      body: JSON.stringify({ username: username })
+    })
+      .then(r => {
+        if (!r.ok) throw new Error("Not OK response");
+        return r.json();
+      })
+      .then(({ online, last_seen_seconds }) => {
+        if (dot) {
+          dot.classList.toggle("online", online);
+          dot.classList.toggle("offline", !online);
+        }
+        if (lastSeenEl) {
+          lastSeenEl.textContent = online
+            ? "Online now"
+            : formatLastSeen(last_seen_seconds);
+        }
+      })
+      .catch(err => console.log("Status polling stopped or errored:", err))
+      .finally(() => {
+        statusTimeout = setTimeout(checkStatus, 10000);
+      });
+  }
+
+  checkStatus();
+});
+</script>
+
+{% endblock content %}

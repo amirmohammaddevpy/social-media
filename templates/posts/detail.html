@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ detail.user.username }} | Post
+{% endblock title %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+
+      <div class="post-card">
+
+        <!-- ── Header ── -->
+        <div class="post-header">
+<a href="{% url 'profiles:profile' detail.user %}" class="user-info">
+  <img src="{{ detail.user.avatar.url }}" class="avatar-img" alt="{{ detail.user.username }}">
+  <div>
+    <strong class="username">{{ detail.user.username }}</strong>
+    <span class="post-date">{{ detail.create_at|date:"M d, Y" }}</span>
+  </div>
+</a>
+
+<div class="dropdown">
+  <button class="more-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">⋮</button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    {% if request.user.is_authenticated and request.user != detail.user %}
+      <li>
+        <button class="dropdown-item text-danger report-open-btn" type="button"
+                data-bs-toggle="modal" data-bs-target="#reportModal">
+          🚩 Report post
+        </button>
+      </li>
+    {% endif %}
+    {% if request.user == detail.user %}
+      <li>
+        <form method="post" action="{% url 'posts:delete_post' detail.id %}">
+          {% csrf_token %}
+          <button class="dropdown-item text-danger" type="submit">Delete post</button>
+        </form>
+      </li>
+    {% endif %}
+  </ul>
+</div>
+
+{% if request.user.is_authenticated and request.user != detail.user %}
+<div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content report-modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Report this post</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <textarea
+          id="reportReasonInput"
+          class="report-desc-input"
+          placeholder="Why are you reporting this post?"
+          rows="4"></textarea>
+        <div class="report-error d-none">Please write a reason.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="submitReportBtn"
+                data-url="{% url 'posts:report_post' detail.id %}">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+        </div>
+
+        <!-- ── Image ── -->
+        <div class="post-image-wrap">
+          <img src="{{ detail.post.url }}" class="post-image" alt="post">
+        </div>
+
+        <!-- ── Description ── -->
+        {% if detail.descriptions %}
+          <div class="post-desc">
+            <span class="desc-user">{{ detail.user.username }}</span>
+            {{ detail.descriptions }}
+          </div>
+        {% endif %}
+
+        <!-- ── Action Bar ── -->
+        <div class="action-bar">
+
+          <!-- LEFT: Like + Comment -->
+          <div class="action-left">
+
+            <button
+              class="action-btn like-btn {% if request.user in detail.user_like.all %}active{% endif %}"
+              data-url="{% url 'posts:like' detail.id %}"
+              onclick="toggleLike(this)"
+              type="button">
+              <svg class="like-icon" xmlns="http://www.w3.org/2000/svg"
+                   width="22" height="22" viewBox="0 0 24 24" style="pointer-events:none">
+                <path d="M20.8 4.6c-1.4-1.4-3.6-1.4-5 0L12 8.4l-3.8-3.8c-1.4-1.4-3.6-1.4-5 0s-1.4 3.6 0 5L12 21l8.8-11.4c1.4-1.4 1.4-3.6 0-5z"/>
+              </svg>
+              <span class="like-count">{{ detail.user_like.count }}</span>
+            </button>
+
+            <button
+              class="action-btn comment-btn"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#comments">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" style="pointer-events:none">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>{{ comments.count }}</span>
+            </button>
+
+          </div>
+
+          <!-- RIGHT: Save -->
+          {# برای فعال کردن save: یک M2M به نام user_save روی مدل Post اضافه کن #}
+          {# و url با نام posts:save تعریف کن #}
+          <button
+            class="action-btn save-btn {% if request.user in detail.user_save.all %}active{% endif %}"
+            data-url="{% url 'posts:save_post' detail.id %}"
+            onclick="toggleSave(this)"
+            type="button">
+            <svg class="save-icon" xmlns="http://www.w3.org/2000/svg"
+                 width="22" height="22" viewBox="0 0 24 24" style="pointer-events:none">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+          </button>
+
+        </div>
+
+        <!-- ── Comments ── -->
+        <div class="collapse show comments-section" id="comments">
+
+          <div class="comments-list">
+            {% for comment in comments %}
+              <div class="comment-row">
+                <img src="{{ comment.user.avatar.url }}" class="c-avatar" alt="{{ comment.user.username }}">
+                <div class="c-bubble">
+                  <div class="c-top">
+                    <a href="{% url 'profiles:profile' comment.user.username %}" class="c-name">
+                      {{ comment.user.username }}
+                    </a>
+                    {% if request.user == comment.user %}
+                      <div class="dropdown">
+                        <button class="c-more-btn" type="button" data-bs-toggle="dropdown">⋮</button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li>
+                            <form method="post" action="{% url 'posts:delete_comment' comment.id %}">
+                              {% csrf_token %}
+                              <button class="dropdown-item text-danger" type="submit">Delete</button>
+                            </form>
+                          </li>
+                        </ul>
+                      </div>
+                    {% endif %}
+                  </div>
+                  <p class="c-text">{{ comment.comment }}</p>
+                </div>
+              </div>
+            {% empty %}
+              <p class="no-comments">No comments yet. Be the first! 💬</p>
+            {% endfor %}
+          </div>
+
+          {% if user.is_authenticated %}
+            <form action="{% url 'posts:detail_post' detail.id %}" method="POST" class="comment-form">
+              {% csrf_token %}
+              <img src="{{ request.user.avatar.url }}" class="c-avatar" alt="me">
+              <div class="c-input-wrap">
+                {{ form.comment }}
+                {% if form.comment.errors %}
+                  <div class="c-error">{{ form.comment.errors }}</div>
+                {% endif %}
+              </div>
+              <button type="submit" class="send-btn" title="Send">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </form>
+          {% else %}
+            <div class="login-hint">
+              <a href="{% url 'account:login' %}">Log in</a> to leave a comment.
+            </div>
+          {% endif %}
+
+        </div>
+        <!-- /comments -->
+
+      </div>
+      <!-- /post-card -->
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Styles ── -->
+<style>
+/* Card */
+.post-card {
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 2px 28px rgba(0,0,0,0.09);
+  border: 1px solid #efefef;
+}
+
+/* Header */
+.post-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.avatar-img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #eee;
+  flex-shrink: 0;
+}
+.username {
+  display: block;
+  font-size: 0.91rem;
+  font-weight: 700;
+
+}
+.post-date {
+  display: block;
+  font-size: 0.74rem;
+  margin-top: 1px;
+}
+.more-btn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.14s;
+}
+.more-btn:hover { background: #f5f5f5; }
+
+/* Image */
+.post-image-wrap { line-height: 0; }
+.post-image {
+  width: 100%;
+  max-height: 520px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Description */
+.post-desc {
+  padding: 11px 16px;
+  font-size: 0.87rem;
+  line-height: 1.5;
+  border-bottom: 1px solid #f5f5f5;
+}
+.desc-user {
+  font-weight: 700;
+  margin-left: 5px;
+}
+
+/* ── Action Bar ── */
+.action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.action-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Base action button */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 500;
+  transition: background 0.14s, color 0.14s;
+}
+.action-btn:hover { background: #f5f5f5; }
+
+/* Like */
+.like-icon {
+  fill: none;
+  stroke: #e03535;
+  stroke-width: 1.8;
+  transition: fill 0.2s, transform 0.18s;
+}
+.like-btn.active .like-icon {
+  fill: #e03535;
+  stroke: #e03535;
+  transform: scale(1.18);
+}
+.like-btn.active { color: #e03535; }
+
+/* Comment */
+.comment-btn { color: #555; }
+.comment-btn:hover { color: #4f46e5; }
+.comment-btn:hover svg { stroke: #4f46e5; }
+
+/* Save */
+.save-icon {
+  fill: none;
+  stroke: #555;
+  stroke-width: 1.8;
+  transition: fill 0.2s, stroke 0.2s, transform 0.18s;
+}
+.save-btn.active .save-icon {
+  fill: #4f46e5;
+  stroke: #4f46e5;
+  transform: scale(1.15);
+}
+.save-btn.active { color: #4f46e5; }
+
+/* ── Comments Section ── */
+.comments-section { padding: 14px 16px 0; }
+
+.comments-list { margin-bottom: 4px; }
+
+.comment-row {
+  display: flex;
+  gap: 9px;
+  margin-bottom: 12px;
+  align-items: flex-start;
+}
+.c-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1.5px solid #eee;
+}
+.c-bubble {
+  border-radius: 14px;
+  padding: 8px 12px;
+  flex: 1;
+  min-width: 0;
+}
+.c-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+.c-name {
+  font-weight: 700;
+  font-size: 0.81rem;
+  text-decoration: none;
+}
+.c-name:hover { color: #4f46e5; }
+.c-more-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 3px;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.c-more-btn:hover { color: #555; }
+.c-text {
+  font-size: 0.83rem;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.no-comments {
+  font-size: 0.84rem;
+  text-align: center;
+  padding: 1.25rem 0;
+}
+
+/* Comment Form */
+.comment-form {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 0 16px;
+  margin-top: 4px;
+}
+.c-input-wrap { flex: 1; }
+.c-input-wrap textarea,
+.c-input-wrap input[type="text"] {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 22px;
+  padding: 8px 15px;
+  font-size: 0.84rem;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: inherit;
+}
+.c-input-wrap textarea:focus,
+.c-input-wrap input[type="text"]:focus {
+  border-color: #4f46e5;
+}
+.c-error {
+  font-size: 0.76rem;
+  color: #dc2626;
+  margin-top: 4px;
+  padding-right: 6px;
+}
+.send-btn {
+  background: #4f46e5;
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.14s, transform 0.1s;
+}
+.send-btn:hover {
+  background: #4338ca;
+  transform: scale(1.07);
+}
+
+.login-hint {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.84rem;
+  border-top: 1px solid #f5f5f5;
+  margin-top: 4px;
+}
+.login-hint a {
+  color: #4f46e5;
+  font-weight: 600;
+  text-decoration: none;
+}
+.login-hint a:hover { text-decoration: underline; }
+.report-desc-input {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.report-desc-input:focus {
+  border-color: #e03535;
+}
+.report-error {
+  color: #dc2626;
+  font-size: 0.78rem;
+  margin-top: 8px;
+}
+</style>
+
+<!-- ── JS ── -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+function getCookie(name) {
+  let v = null;
+  if (document.cookie) {
+    document.cookie.split(';').forEach(c => {
+      c = c.trim();
+      if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+    });
+  }
+  return v;
+}
+const csrftoken = getCookie('csrftoken');
+
+function toggleLike(el) {
+  $.ajax({
+    url: el.dataset.url,
+    type: 'POST',
+    headers: { 'X-CSRFToken': csrftoken },
+    dataType: 'json'
+  }).done(res => {
+    const countEl = el.querySelector('.like-count');
+    if (res.status === 'liked') {
+      el.classList.add('active');
+      countEl.innerText = Number(countEl.innerText) + 1;
+    } else {
+      el.classList.remove('active');
+      countEl.innerText = Number(countEl.innerText) - 1;
+    }
+  }).fail(err => console.error('LIKE ERROR', err.responseText));
+}
+
+function toggleSave(el) {
+  $.ajax({
+    url: el.dataset.url,
+    type: 'POST',
+    headers: { 'X-CSRFToken': csrftoken },
+    dataType: 'json'
+  }).done(res => {
+    if (res.status === 'saved') {
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+    }
+  }).fail(err => console.error('SAVE ERROR', err.responseText));
+}
+//report post//
+const reportBtn = document.getElementById('submitReportBtn');
+if (reportBtn) {
+  reportBtn.addEventListener('click', function () {
+    const btn = this;
+    const textarea = document.getElementById('reportReasonInput');
+    const subject = textarea.value.trim();
+    const errorEl = document.querySelector('.report-error');
+
+    if (!subject) {
+      errorEl.classList.remove('d-none');
+      return;
+    }
+    errorEl.classList.add('d-none');
+    btn.disabled = true;
+
+    $.ajax({
+      url: btn.dataset.url,
+      type: 'POST',
+      headers: { 'X-CSRFToken': csrftoken },
+      data: { subject: subject },
+      dataType: 'json'
+    }).done(res => {
+      const modalEl = document.getElementById('reportModal');
+      bootstrap.Modal.getInstance(modalEl).hide();
+
+      if (res.status === 'reported') {
+        if (res.post_deleted) {
+          alert('This post has been removed due to multiple reports.');
+          window.location.href = "{% url 'home:home' %}";
+        } else {
+          alert('Thanks — your report was submitted.');
+        }
+      } else if (res.status === 'already_reported') {
+        alert('You already reported this post.');
+      } else if (res.status === 'error') {
+        alert('Something went wrong with your report.');
+      }
+    }).fail(err => {
+      console.error('REPORT ERROR', err.responseText);
+      alert('Something went wrong, please try again.');
+    }).always(() => {
+      btn.disabled = false;
+      textarea.value = '';
+    });
+  });
+}
+</script>
+
+{% endblock content %}

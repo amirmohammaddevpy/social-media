@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+<style>
+  .saved-page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .saved-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid #1e293b;
+  }
+
+  .saved-header h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .saved-count {
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+  }
+
+  /* ── Post list ── */
+  .saved-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .post-card {
+    display: flex;
+    gap: 1.25rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: box-shadow 0.18s, border-color 0.18s;
+  }
+
+  .post-card:hover {
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
+    border-color: #c7d2fe;
+  }
+
+  /* Thumbnail */
+  .post-thumb {
+    width: 96px;
+    height: 76px;
+    object-fit: cover;
+    border-radius: 7px;
+    flex-shrink: 0;
+  }
+
+  .post-thumb-placeholder {
+    width: 96px;
+    height: 76px;
+    flex-shrink: 0;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Body */
+  .post-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .post-category {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #4f46e5;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+  }
+
+  .post-date {
+    font-size: 0.77rem;
+    color: #94a3b8;
+  }
+
+  .post-title {
+    font-size: 1.02rem;
+    font-weight: 600;
+    text-decoration: none;
+    line-height: 1.4;
+    margin-bottom: 0.35rem;
+    display: block;
+  }
+
+  .post-title:hover { color: #4f46e5; }
+
+  .post-excerpt {
+    font-size: 0.84rem;
+    line-height: 1.55;
+    margin: 0 0 auto;
+    padding-bottom: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .post-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.65rem;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .post-author {
+    font-size: 0.79rem;
+    font-weight: 500;
+  }
+
+  /* Unsave button */
+  .unsave-form { margin: 0; }
+
+  .unsave-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.28rem 0.65rem;
+    font-size: 0.76rem;
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s, border-color 0.14s;
+  }
+
+  .unsave-btn:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fca5a5;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+  }
+
+  .empty-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 1.25rem;
+    opacity: 0.35;
+  }
+
+  .empty-state h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.4rem;
+  }
+
+  .empty-state p {
+    font-size: 0.88rem;
+    margin: 0 0 1.5rem;
+  }
+
+  .browse-btn {
+    display: inline-block;
+    background: #4f46e5;
+    color: #fff;
+    padding: 0.55rem 1.3rem;
+    border-radius: 8px;
+    font-size: 0.87rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.14s;
+  }
+  .browse-btn:hover { background: #4338ca; }
+
+  /* ── Responsive ── */
+  @media (max-width: 540px) {
+    .post-card { flex-direction: column; }
+    .post-thumb,
+    .post-thumb-placeholder { width: 100%; height: 140px; }
+  }
+</style>
+
+<div class="saved-page">
+
+  <div class="saved-header">
+    <h1>Saved Posts</h1>
+    {% if save %}
+      <span class="saved-count">
+        {{ save|length }} post{{ save|length|pluralize }}
+      </span>
+    {% endif %}
+  </div>
+
+  {% if save %}
+    <div class="saved-list">
+      {% for post in save %}
+
+        {# ✅ <a> و </a> هر دو داخل for loop هستن #}
+        <a href="{% url 'posts:detail_post' post.id %}" style="text-decoration: none;">
+          <div class="post-card">
+
+            {% if post.post %}
+              <img class="post-thumb" src="{{ post.post.url }}" alt="{{ post.post.title }}">
+            {% else %}
+              <div class="post-thumb-placeholder">
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24"
+                     stroke="#a5b4fc" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <path d="M3 9h18M9 21V9"/>
+                </svg>
+              </div>
+            {% endif %}
+
+            <div class="post-body">
+
+              <div class="post-meta">
+
+                <span class="post-date">{{ post.create_at|date:"M d, Y" }}</span>
+              </div>
+
+              <p class="post-excerpt">
+                {{ post.descriptions}}
+              </p>
+
+              <div class="post-footer">
+                <span class="post-author">
+                  By {{ post.user }}
+                </span>
+              </div>
+
+            </div>
+          </div>
+        </a>
+
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <div class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5">
+        <path d="M5 3a2 2 0 0 0-2 2v16l9-4 9 4V5a2 2 0 0 0-2-2H5z"/>
+      </svg>
+      <h2>No saved posts yet</h2>
+      <p>Posts you bookmark will appear here.</p>
+      <a href="{% url 'home:explore' %}" class="browse-btn">Browse Posts</a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock content %}
+    

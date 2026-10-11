@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center vh-100">
+  <div class="card shadow-lg p-4" style="width: 100%; max-width: 450px;">
+    <h2 class="card-title text-center mb-4">Create an Account</h2>
+
+<!-- Messages -->
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-danger" role="alert">
+    {{ message }}
+  </div>
+  {% endfor %}
+{% endif %}
+
+
+
+<form action="{% url 'account:register' %}" method="POST">
+  {% csrf_token %}
+  {% for field in form %}
+    <div class="mb-3">
+      {{ field.label_tag }}
+      
+      {% if field.errors %}
+        <div class="is-invalid-container">
+          {{ field }}
+        </div>
+        <div class="invalid-feedback d-block">
+          {% for error in field.errors %}
+            {{ error }}
+          {% endfor %}
+        </div>
+      {% else %}
+        {{ field }}
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  <button type="submit" class="btn btn-primary w-100">Register</button>
+</form>
+    <p class="text-center mt-3">
+      Already have an account? <a href="{% url 'account:login' %}">Login</a>
+    </p>
+  </div>
+</div>
+{% endblock content %}
